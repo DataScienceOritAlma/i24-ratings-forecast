@@ -1,0 +1,41 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+env/
+.venv/
+
+# Jupyter
+.ipynb_checkpoints/
+*.ipynb
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Streamlit secrets (NEVER commit!)
+.streamlit/secrets.toml
+
+# Logs / tmp
+*.log
+tmp/
+
+# CatBoost training artifacts
+catboost_info/
+
+# Claude Code working dir
+.claude/
+
+# Duplicate/intermediate Excels (originals are checked in)
+"תוכניות (1).xlsx"
+"תוכניות (2).xlsx"
