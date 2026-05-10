@@ -17,22 +17,10 @@ from utils.data_loader import load_processed
 from utils.predict import (predict_time_range, get_program_profile,
                             date_to_weekday_he, predict_forecast_curve,
                             predict_scenarios, rating_to_viewers)
+from utils.style import apply_style
 
 st.set_page_config(page_title="חיזוי עתידי | i24", page_icon="🎯", layout="wide")
-st.markdown("""
-<style>
-.main, .block-container, [data-testid="stSidebar"] { direction: rtl; text-align: right; }
-[data-testid="stMetricValue"] { direction: ltr; text-align: right; }
-.hero-result {
-  background: linear-gradient(135deg, #0066cc 0%, #004499 100%);
-  border-radius: 12px; padding: 24px; color: white; text-align: center;
-}
-.hero-result .number { font-size: 4em; font-weight: bold; line-height: 1; }
-.hero-result .label { font-size: 1.1em; opacity: 0.9; margin-top: 8px; }
-.scenario-card { padding: 12px; border-radius: 8px; background: #f7fafc; }
-</style>
-""", unsafe_allow_html=True)
-
+apply_style()
 require_password()
 
 st.title("🎯 חיזוי תוכנית עתידית")
@@ -155,8 +143,11 @@ if predict_clicked:
             f"""
             <div class="hero-result">
               <div class="number">{result['prediction']:.2f}</div>
-              <div class="label">רייטינג צפוי | ≈ {result['households']:,} בתי-אב | ≈ {result['viewers']:,} צופים</div>
-              <div style="margin-top:14px; font-size:0.95em; opacity:0.85;">
+              <div class="label">רייטינג צפוי</div>
+              <div class="meta">
+                ≈ {result['households']:,} בתי-אב · ≈ {result['viewers']:,} צופים
+              </div>
+              <div class="meta">
                 {program} · {weekday_he} {date_str} · {start_time.strftime('%H:%M')}–{end_time.strftime('%H:%M')} ({result['duration_min']}m)
               </div>
             </div>
@@ -232,19 +223,21 @@ if predict_clicked:
             sc_cols = st.columns(len(scenarios))
             for col, sc in zip(sc_cols, scenarios):
                 with col:
-                    selected = sc["scenario"].split()[1] in event_choice or \
-                              (event_choice == "ללא — שגרה" and "שגרה" in sc["scenario"])
-                    border_style = "3px solid #0066cc" if selected else "1px solid #ddd"
+                    selected = (sc["scenario"].split()[1] in event_choice or
+                                (event_choice == "ללא — שגרה" and "שגרה" in sc["scenario"]))
+                    cls = "scenario-card selected" if selected else "scenario-card"
                     st.markdown(
                         f"""
-                        <div class="scenario-card" style="border:{border_style}">
-                          <div style="font-size:1.05em; font-weight:bold;">{sc['scenario']}</div>
-                          <div style="font-size:2.2em; font-weight:bold; color:#0066cc; margin:8px 0;">
+                        <div class="{cls}">
+                          <div style="font-size:1.1em; font-weight:600; color:#374151;">
+                            {sc['scenario']}
+                          </div>
+                          <div style="font-size:2.6em; font-weight:800; color:#1E40AF; margin:10px 0; letter-spacing:-0.02em;">
                             {sc['prediction']:.2f}
                           </div>
-                          <div style="font-size:0.9em; color:#666;">
+                          <div style="font-size:0.9em; color:#6B7280; line-height:1.6;">
                             [{sc['ci_low']:.2f}, {sc['ci_high']:.2f}]<br>
-                            {sc['viewers']['viewers']:,} צופים
+                            <strong>{sc['viewers']['viewers']:,}</strong> צופים
                           </div>
                         </div>
                         """,

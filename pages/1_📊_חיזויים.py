@@ -6,15 +6,10 @@ import plotly.express as px
 
 from utils.auth import require_password
 from utils.data_loader import load_predictions, best_model_column
+from utils.style import apply_style
 
 st.set_page_config(page_title="חיזויים | i24", page_icon="📊", layout="wide")
-st.markdown("""
-<style>
-.main, .block-container, [data-testid="stSidebar"] { direction: rtl; text-align: right; }
-[data-testid="stMetricValue"] { direction: ltr; text-align: right; }
-</style>
-""", unsafe_allow_html=True)
-
+apply_style()
 require_password()
 
 st.title("📊 חיזויים — דפדוף וסינון")

@@ -8,6 +8,7 @@ import streamlit as st
 
 from utils.auth import require_password
 from utils.data_loader import load_processed, load_predictions, load_metrics_summary
+from utils.style import apply_style
 
 st.set_page_config(
     page_title="i24 חיזוי רייטינג",
@@ -15,17 +16,7 @@ st.set_page_config(
     layout="wide",
 )
 
-# Hebrew RTL CSS
-st.markdown("""
-<style>
-.main, .block-container, [data-testid="stSidebar"] { direction: rtl; text-align: right; }
-.stMarkdown, .stMetric, .stDataFrame, .stTable { direction: rtl; }
-[data-testid="stMetricValue"] { direction: ltr; text-align: right; }
-h1, h2, h3, h4 { direction: rtl; text-align: right; }
-.stButton > button { direction: rtl; }
-</style>
-""", unsafe_allow_html=True)
-
+apply_style()
 require_password()
 
 # ---------- Header ----------

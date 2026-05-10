@@ -7,15 +7,10 @@ import plotly.graph_objects as go
 
 from utils.auth import require_password
 from utils.data_loader import load_processed, load_predictions, best_model_column
+from utils.style import apply_style
 
 st.set_page_config(page_title="כרטיס תוכנית | i24", page_icon="📺", layout="wide")
-st.markdown("""
-<style>
-.main, .block-container, [data-testid="stSidebar"] { direction: rtl; text-align: right; }
-[data-testid="stMetricValue"] { direction: ltr; text-align: right; }
-</style>
-""", unsafe_allow_html=True)
-
+apply_style()
 require_password()
 
 st.title("📺 כרטיס תוכנית")
