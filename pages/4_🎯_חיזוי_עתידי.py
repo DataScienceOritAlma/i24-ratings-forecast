@@ -85,13 +85,13 @@ with st.container(border=True):
         status_choice = st.selectbox("📡 סטטוס", options=status_options, index=0)
         chosen_status = profile["typical_status"] if status_choice.startswith("🤖") else status_choice
 
-    # Event
+    # Event — simplified to 3 options
     event_choice = st.radio(
         "🚨 אירוע מיוחד באותו יום?",
-        options=["ללא — שגרה", "🕊️ חג", "⚠️ אירוע ביטחוני",
-                 "🌍 אירוע מדיני", "📰 ברייקינג"],
+        options=["ללא — שגרה", "🕊️ חג", "⚠️ אירוע מיוחד"],
         horizontal=True,
         index=0,
+        help="אירוע מיוחד = ביטחוני / מדיני / ברייקינג / כל אירוע שמעלה צפייה",
     )
 
     # Computed duration
@@ -111,12 +111,8 @@ with st.container(border=True):
 
 # Map event flags
 is_holiday = event_choice == "🕊️ חג"
-is_security = event_choice in ["⚠️ אירוע ביטחוני", "🌍 אירוע מדיני", "📰 ברייקינג"]
-event_tag_map = {
-    "🕊️ חג": "חג", "⚠️ אירוע ביטחוני": "ביטחוני",
-    "🌍 אירוע מדיני": "מדיני", "📰 ברייקינג": "ברייקינג",
-}
-event_tag = event_tag_map.get(event_choice, "—")
+is_security = event_choice == "⚠️ אירוע מיוחד"  # broad: covers ביטחוני/מדיני/ברייקינג
+event_tag = "חג" if is_holiday else ("מיוחד" if is_security else "—")
 
 # ==========================================================================
 # Section 2: Predict button
