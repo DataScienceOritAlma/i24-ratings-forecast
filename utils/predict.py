@@ -56,21 +56,86 @@ def load_model():
 
 
 def compute_recent_trend(history_df: pd.DataFrame, program_name: str,
-                          lookback_months: int = 3) -> float:
-    """Compute month-over-month rating growth in recent months.
-    Returns mean MoM growth rate (e.g., 0.05 = 5% per month)."""
+                          lookback_months: int = 6) -> float:
+    """Compute moderate month-over-month rating growth in recent months.
+
+    Uses 6-month lookback for stability. Returns linear (not compounded)
+    monthly growth, capped to ±5%/month — realistic for TV ratings.
+    Compounding 20%/month for 6 months is unrealistic; 5%/mo over 6 mo = 35%
+    cumulative which is the upper-bound for real-world rating growth.
+    """
     h = history_df[history_df["שם תוכנית_מקור"] == program_name].copy()
     if len(h) < 5:
-        h = history_df.copy()  # fall back to global trend
+        h = history_df.copy()
     h["month"] = pd.to_datetime(h["תאריך שידור"]).dt.to_period("M")
     monthly = h.groupby("month")["רייטינג"].mean().tail(lookback_months + 1)
-    if len(monthly) < 2:
+    if len(monthly) < 3:
         return 0.0
-    pct_changes = monthly.pct_change().dropna()
-    if len(pct_changes) == 0:
+    # Linear regression slope as % of mean (more robust than pct_change mean)
+    y = monthly.values
+    x = np.arange(len(y))
+    if y.mean() <= 0:
         return 0.0
-    trend = float(pct_changes.mean())
-    return max(min(trend, 0.20), -0.20)  # clamp to [-20%, +20%] / month
+    slope = np.polyfit(x, y, 1)[0]
+    monthly_growth = slope / y.mean()
+    # Cap to ±5%/month — realistic for TV ratings
+    return float(max(min(monthly_growth, 0.05), -0.05))
+
+
+def compute_slot_uncertainty(history_df: pd.DataFrame, program_name: str,
+                              hour: int, weekday_he: str) -> dict:
+    """Estimate prediction uncertainty from slot residuals.
+
+    Returns expected MAE and 80% prediction interval based on actual variance
+    in the program × slot combination. Falls back to global slot std if too
+    few historical points.
+    """
+    GLOBAL_MAE = 0.263  # from MODEL_REPORT_ALL test set
+
+    # Try program × slot first
+    h_ps = history_df[
+        (history_df["שם תוכנית_מקור"] == program_name) &
+        (history_df["שעת התחלה_שעה"] == hour) &
+        (history_df["יום שידור"] == weekday_he)
+    ]
+    if len(h_ps) >= 5:
+        std = float(h_ps["רייטינג"].std())
+        n = len(h_ps)
+        source = "תוכנית × רצועה"
+    else:
+        # Fall back to slot only
+        h_s = history_df[
+            (history_df["שעת התחלה_שעה"] == hour) &
+            (history_df["יום שידור"] == weekday_he)
+        ]
+        if len(h_s) >= 10:
+            std = float(h_s["רייטינג"].std())
+            n = len(h_s)
+            source = "רצועה (יום × שעה)"
+        else:
+            std = GLOBAL_MAE
+            n = 0
+            source = "ברירת מחדל גלובלית"
+
+    return {
+        "expected_mae": round(max(GLOBAL_MAE, std * 0.8), 3),
+        "p80_half_width": round(std * 1.28, 3),  # 80% PI for normal
+        "p95_half_width": round(std * 1.96, 3),
+        "n": n,
+        "source": source,
+    }
+
+
+def rating_to_viewers(rating: float, hh_per_point: int = 25000,
+                      viewers_per_hh: float = 2.3) -> dict:
+    """Convert rating point to estimated households + viewers.
+    Based on Israeli TV norms:
+      - 1 rating point ≈ 25,000 households (out of ~2.5M TV households)
+      - Avg 2.3 viewers per watching household
+    """
+    households = int(round(rating * hh_per_point))
+    viewers = int(round(households * viewers_per_hh))
+    return {"households": households, "viewers": viewers}
 
 
 def compute_lag_features(history_df: pd.DataFrame,
@@ -417,13 +482,28 @@ def predict_time_range(history_df: pd.DataFrame,
         return None
 
     point = r["point"] * trend_multiplier
-    low = r["ci_low"] * trend_multiplier
-    high = r["ci_high"] * trend_multiplier
+
+    # ---- Better CI based on slot variance (replaces arbitrary ±std) ----
+    weekday_he = date_to_weekday_he(target_date)
+    uncertainty = compute_slot_uncertainty(history_df, program_name, start_hour, weekday_he)
+
+    # Special events have wider uncertainty
+    p80_half = uncertainty["p80_half_width"]
+    if is_security:
+        p80_half = max(p80_half, 0.6)  # security events are unpredictable
+    elif is_holiday:
+        p80_half = max(p80_half, 0.4)
+
+    ci_low_v = max(0.0, point - p80_half)
+    ci_high_v = point + p80_half
+
+    # Viewer estimates for hero metric
+    viewers = rating_to_viewers(point)
 
     return {
         "prediction": round(point, 3),
-        "ci_low": round(low, 3),
-        "ci_high": round(high, 3),
+        "ci_low": round(ci_low_v, 3),
+        "ci_high": round(ci_high_v, 3),
         "raw_prediction": round(r["point"], 3),
         "duration_min": duration_min,
         "start_time": f"{start_hour:02d}:{start_min:02d}",
@@ -437,7 +517,84 @@ def predict_time_range(history_df: pd.DataFrame,
         "is_security": is_security,
         "lag_program_n": r.get("lag_program_n", 0),
         "is_cold_start": r.get("is_cold_start", False),
+        "uncertainty": uncertainty,
+        "households": viewers["households"],
+        "viewers": viewers["viewers"],
     }
+
+
+def predict_forecast_curve(history_df: pd.DataFrame, program_name: str,
+                            base_date, start_hour: int, start_min: int,
+                            end_hour: int, end_min: int,
+                            **kwargs) -> pd.DataFrame:
+    """Generate forecast curve for the next 6 months.
+    Returns DataFrame with columns: date, prediction, ci_low, ci_high."""
+    base_date = pd.to_datetime(base_date)
+    weekday_he = date_to_weekday_he(base_date)
+
+    rows = []
+    for days in [7, 14, 30, 60, 90, 120, 180]:
+        future = base_date + pd.Timedelta(days=days)
+        # Adjust to same weekday
+        delta = (future.weekday() - base_date.weekday()) % 7
+        future_aligned = future - pd.Timedelta(days=delta)
+        try:
+            r = predict_time_range(
+                history_df=history_df,
+                program_name=program_name,
+                target_date=future_aligned,
+                start_hour=start_hour, start_min=start_min,
+                end_hour=end_hour, end_min=end_min,
+                **kwargs,
+            )
+            if r:
+                rows.append({
+                    "date": future_aligned,
+                    "days_ahead": days,
+                    "prediction": r["prediction"],
+                    "ci_low": r["ci_low"],
+                    "ci_high": r["ci_high"],
+                })
+        except Exception:
+            pass
+    return pd.DataFrame(rows)
+
+
+def predict_scenarios(history_df: pd.DataFrame, program_name: str,
+                       target_date, start_hour: int, start_min: int,
+                       end_hour: int, end_min: int,
+                       status: Optional[str] = None) -> list:
+    """Generate predictions for 4 scenarios: routine, holiday, security, breaking."""
+    scenarios = [
+        {"name": "🟢 שגרה", "is_holiday": False, "is_security": False, "tag": "—"},
+        {"name": "🕊️ חג", "is_holiday": True, "is_security": False, "tag": "חג"},
+        {"name": "⚠️ אירוע ביטחוני", "is_holiday": False, "is_security": True, "tag": "ביטחוני"},
+        {"name": "📰 ברייקינג", "is_holiday": False, "is_security": True, "tag": "ברייקינג"},
+    ]
+    results = []
+    for s in scenarios:
+        try:
+            r = predict_time_range(
+                history_df=history_df,
+                program_name=program_name,
+                target_date=target_date,
+                start_hour=start_hour, start_min=start_min,
+                end_hour=end_hour, end_min=end_min,
+                status=status,
+                is_holiday=s["is_holiday"], is_security=s["is_security"],
+                event_tag=s["tag"],
+            )
+            if r:
+                results.append({
+                    "scenario": s["name"],
+                    "prediction": r["prediction"],
+                    "ci_low": r["ci_low"],
+                    "ci_high": r["ci_high"],
+                    "viewers": r["viewers"],
+                })
+        except Exception:
+            pass
+    return results
 
 
 def predict_with_uncertainty(history_df: pd.DataFrame, **kwargs) -> dict:
