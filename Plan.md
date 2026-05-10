@@ -103,15 +103,36 @@
 - [x] MAE לפי חתך (יום/חלק-יום/אירוע/סטטוס) עם בחירת מודלים מרובה
 - [x] השוואה ראש-בראש: A מול B + 10 שורות שכל אחד ניצח
 
-### 🔲 7. פריסה (תשתית מוכנה — חסר חלק ידני)
+### ✅ 7. פריסה (הושלם 2026-05-10)
 - [x] `requirements.txt` עם פינים מדויקים
-- [x] `.gitignore` (כולל secrets, catboost_info, .claude)
+- [x] `.gitignore` (נשאר עם secrets/__pycache__/.claude)
 - [x] `README.md` + `DEPLOY.md` עם הוראות צעד-אחר-צעד
 - [x] `git init` + initial commit על branch `main`
-- [ ] **ידני:** יצירת ריפו פרטי ב-https://github.com/new
-- [ ] **ידני:** `git remote add origin ...` + `git push -u origin main`
-- [ ] **ידני:** חיבור ל-https://share.streamlit.io + הזנת `APP_PASSWORD` ב-Secrets
-- [ ] קבלת URL לשיתוף
+- [x] ריפו ב-GitHub: **DataScienceOritAlma/i24-ratings-forecast** (ציבורי)
+- [x] `git push origin main` (12 commits אחרי-כן)
+- [x] חיבור ל-Streamlit Cloud + הזנת `APP_PASSWORD` ב-Secrets
+- [x] **URL חי:** https://i24-ratings-orit.streamlit.app
+- [x] סיסמה: `i24-2026-orit`
+
+### ✅ 8. מסך חדש: חיזוי תוכנית עתידית (הושלם 2026-05-10)
+- [x] תשתית: `train_and_save_model.py` + `model_saved.joblib`
+- [x] `utils/predict.py` — לחישוב lag features בזמן אמת
+- [x] `utils/imputers.py` — מודול משותף לפתרון pickle cross-script
+- [x] `pages/4_🎯_חיזוי_עתידי.py` — UI מלא
+- [x] שדות חובה מינימליים (תוכנית + תאריך)
+- [x] קלט שעות מדוייקות (start/end HH:MM)
+- [x] אירוע מיוחד (binary: שגרה / מיוחד)
+- [x] Hero result + רווח-בטחון מבוסס שונות אמיתית
+- [x] תרגום רייטינג → בתי-אב + צופים
+- [x] עקומת חיזוי לחצי שנה
+- [x] השוואת 2 תרחישים
+- [x] CSV export
+
+### ✅ 9. עיצוב מאוחד (הושלם 2026-05-10)
+- [x] `utils/style.py` — מודול apply_style משותף לכל הדפים
+- [x] גופן Heebo, גרדיאנטים, hover effects
+- [x] Hero card מלוטש
+- [x] סנן דף "כרטיס תוכנית" ל-58 תוכניות עם חיזויים בלבד
 
 ---
 

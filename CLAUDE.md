@@ -36,14 +36,23 @@
 - `MENTOR_PREP.md` — הכנה למפגשי מנטור 3-6 + שאלות לשאול
 - `PRODUCT_VISION.md` — חזון מוצר B2B + GitHub strategy + דאטה נוסף
 
-### אפליקציה (Streamlit, נוסף 2026-05-09)
+### אפליקציה (Streamlit, נוסף 2026-05-09, פרוס באוויר 2026-05-10)
 - `app.py` — דף הבית
-- `pages/1_📊_חיזויים.py`, `pages/2_📺_כרטיס_תוכנית.py`, `pages/3_🔍_השוואת_מודלים.py`
+- `pages/1_📊_חיזויים.py`, `pages/2_📺_כרטיס_תוכנית.py`, `pages/3_🔍_השוואת_מודלים.py`, **`pages/4_🎯_חיזוי_עתידי.py`** (חדש 2026-05-10)
 - `utils/auth.py` — password gate
 - `utils/data_loader.py` — טעינות cached
+- **`utils/predict.py`** (חדש) — חיזוי בזמן אמת על קלט עתידי
+- **`utils/imputers.py`** (חדש) — imputers משותפים (פתרון pickle cross-script)
+- **`utils/style.py`** (חדש) — מערכת עיצוב מאוחדת (Heebo, גרדיאנטים, hover)
+- **`train_and_save_model.py`** (חדש) — מאמן את HistGradientBoosting ושומר ל-joblib
+- **`model_saved.joblib`** (חדש, 1.2MB) — הצנרת המאומנת לטעינה ב-runtime
 - `.streamlit/config.toml` — תצורה
 - `.streamlit/secrets.toml.example` — תבנית לסיסמה (הקובץ האמיתי ב-gitignore)
-- `requirements.txt` — תלויות לפריסה
+- `requirements.txt` — תלויות לפריסה (כולל joblib==1.4.2)
+
+### 🌐 Live URLs
+- **GitHub:** https://github.com/DataScienceOritAlma/i24-ratings-forecast (ציבורי)
+- **Streamlit:** https://i24-ratings-orit.streamlit.app (סיסמה: `i24-2026-orit`)
 
 ## כללי עבודה
 
@@ -69,11 +78,13 @@ py -3 model_train_all.py            # V3 — 19 מודלים, ~60 שניות
 ### חבילות מותקנות
 `pandas`, `numpy`, `openpyxl`, `scikit-learn`, `xgboost`, `lightgbm`, `catboost`, `statsmodels`
 
-## סטטוס נוכחי (מעודכן 2026-05-09)
+## סטטוס נוכחי (מעודכן 2026-05-10)
 - שלב EDA: **הושלם ✅**
-- שלב מידול (5 שכבות): **הושלם ✅**
+- שלב מידול (5 שכבות + V3 19 מודלים): **הושלם ✅**
 - נקודת החלטה: **הושלמה ✅** — עברנו לפיתוח אפליקציה
-- שלב אפליקציה: **בתכנון**
+- שלב אפליקציה: **הושלם ✅** — 4 מסכים פעילים
+- שלב פריסה: **הושלם ✅** — חי באוויר ב-Streamlit Cloud
+- שלב עיצוב: **הושלם ✅** — מערכת עיצוב מאוחדת
 
 ## תוצאות מידול (לעיון מהיר)
 | מודל | MAE | R² |

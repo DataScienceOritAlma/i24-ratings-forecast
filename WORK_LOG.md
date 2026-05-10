@@ -5,6 +5,89 @@
 
 ---
 
+## 2026-05-10 — שלב 19: פריסה לאוויר + מסך חיזוי עתידי + עיצוב
+
+יום עבודה אינטנסיבי שהפך את ה-MVP למוצר חי באוויר.
+
+### 🌐 פריסה ל-Streamlit Cloud
+- ריפו GitHub: **https://github.com/DataScienceOritAlma/i24-ratings-forecast** (ציבורי)
+- אפליקציה חיה: **https://i24-ratings-orit.streamlit.app**
+- סיסמה: `i24-2026-orit` (ב-Streamlit Secrets)
+- **החלטה:** ריפו ציבורי + נתונים מעורים, סיסמה היא שכבת הגנה יחידה
+- היו אתגרים בדרך עם הרשאות OAuth ו-private repos שנפתרו ע"י מעבר ל-public
+
+### 🎯 מסך חדש: חיזוי תוכנית עתידית (`pages/4_🎯_חיזוי_עתידי.py`)
+מסך שמיועד לאנליסט מחקר — בוחרים תוכנית + תאריך + שעות + אירוע, ומקבלים חיזוי מבוסס מודל.
+
+#### תשתית חדשה
+- **`train_and_save_model.py`** — מאמן את HistGradientBoosting על כל הדאטה ושומר ל-joblib
+- **`model_saved.joblib`** (1.2MB) — הצנרת המאומנת המוכנה לשימוש בזמן אמת
+- **`utils/imputers.py`** — מודול משותף ל-imputers (פתרון בעיית pickle cross-script)
+- **`utils/predict.py`** — חיזוי בזמן אמת עם:
+  - `compute_lag_features()` — חישוב lags לשורה עתידית מהיסטוריה (חלון 90 יום)
+  - `compute_recent_trend()` — regression linear על 6 חודשים, capped ±5%/חודש
+  - `compute_slot_uncertainty()` — CI מבוסס שונות בפועל (תוכנית×רצועה, לא std שרירותי)
+  - `predict_time_range()` — חיזוי יחיד לטווח זמנים (start/end HH:MM)
+  - `predict_scenarios()` — 2 תרחישים: שגרה / אירוע מיוחד
+  - `predict_forecast_curve()` — חיזויים ל-7/14/30/60/90/120/180 ימים קדימה
+  - `rating_to_viewers()` — המרה: רייטינג → בתי-אב → צופים (~25K hh × 2.3 ppl/hh)
+
+#### תכונות הדף
+- **שדות חובה:** רק 2 (תוכנית + תאריך). השאר: ברירות-מחדל מההיסטוריה
+- **שעות:** start/end HH:MM (תומך wrap סביב חצות 23:30→01:15)
+- **אירוע:** רק 2 אופציות — שגרה / אירוע מיוחד
+- **Hero result:** גרדיאנט כחול עם מספר גדול + בתי-אב + צופים
+- **CSV export** של דוח החיזוי
+
+### 🎨 מערכת עיצוב מאוחדת
+- **`utils/style.py`** — מודול `apply_style()` שמוזרק לכל דף
+- **גופן:** Heebo מ-Google Fonts (עברית אלגנטית)
+- **ערכת צבעים:** כחולים (#2563EB primary), גרדיאנטים, hover lifts
+- **Hero result:** 5em עם gradient text fill + glow shadow
+- **Sidebar:** לבן עם הדגשת דף נוכחי בגרדיאנט
+- **Metrics:** כרטיסי-מידע עם הצללה ו-hover effect
+- **Plotly:** עכשיו בכרטיסים ולא על הרקע
+
+### 🐛 תיקונים מרכזיים
+1. **שעה טיפוסית** — היה מציג "02:00" (זמן השידורים החוזרים). תוקן לסנן רק שידורים חיים.
+2. **חיזוי ארכיטקטורה** — היה ממוצע על שעות (1.50). תוקן ל-חיזוי-יחיד לכל שידור (2.35).
+3. **טרנד** — היה compounded 20%/חודש (לא ריאלי). תוקן ל-linear regression capped ±5%.
+4. **CI** — היה ±std שרירותי. תוקן ל-percentile-based מהיסטוריה האמיתית של הרצועה.
+5. **דף "כרטיס תוכנית"** — היה מציג 147 תוכניות. תוקן ל-58 (רק אלה עם חיזויים).
+
+### 📊 מצב סופי של החיזוי לדוגמא
+**"קבינט שישי" שישי 15/05/2026 19:50–22:00:**
+- 🎯 רייטינג צפוי: **2.09**
+- ≈ **52,192 בתי-אב** · ≈ **120,042 צופים**
+- טווח 80%: [0.84, 3.34]
+- ר' ממוצע 90 יום: 1.34 → טרנד +5%/חודש
+- **באירוע מיוחד: ~2.95** (קפיצה 41%)
+
+### Commits של היום (12 commits)
+```
+3fd98eb Fix TypeError in scenarios card
+797415c Polish UI: unified design system with Heebo font
+9091b4a Simplify to 2 event options: routine vs special
+a24b8ff Simplify event selector: 3 options instead of 5
+09c27fd Filter program-card selectbox to programs with predictions only
+e127761 Polish prediction page: research-manager-grade UX
+6fd4bc7 Fix prediction realism: single prediction + live-only profile
+d8ae035 Add exact time-range inputs + special event selector
+3e17c53 Fix forward-prediction bias with recent window + trend correction
+f42b95f Redesign prediction page: minimal mandatory fields, smart defaults
+13fad29 Add future-prediction page (research analyst use case)
+ffd7730 Bundle data with public repo
+```
+
+### תקציר ל-MVP
+ה-MVP **מוכן ב-100%** לראיון/הצגה. אנליסט מחקר יכול:
+1. להיכנס לאפליקציה עם הסיסמה
+2. לבחור תוכנית מ-179 קיימות
+3. לבחור תאריך עתידי (עד שנה קדימה)
+4. לקבל חיזוי עם רווח-בטחון, צופים מוערכים, השוואת תרחישים, עקומת 6 חודשים, ולהוריד CSV
+
+---
+
 ## 2026-05-09 — שלב 18: בניית אפליקציית Streamlit + תשתית פריסה
 
 נבנה ה-MVP של האפליקציה לפי `Plan.md`. כל הקבצים קומיטו ב-git ראשוני (commit `5631087`, branch `main`).
