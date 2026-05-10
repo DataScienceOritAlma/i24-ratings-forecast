@@ -163,18 +163,35 @@ if st.button("🚀 חזה רייטינג", type="primary", use_container_width=T
         st.markdown(f"## 📊 חיזוי ל-*{program}*")
         st.caption(f"{weekday_he} {date_str} | {chosen_daypart} | סטטוס: {chosen_status}")
 
+        # Trend info banner
+        trend_pct = result["monthly_trend"]
+        months = result["months_ahead"]
+        if abs(trend_pct) > 1:
+            trend_emoji = "📈" if trend_pct > 0 else "📉"
+            trend_label = "עולה" if trend_pct > 0 else "יורד"
+            st.info(
+                f"{trend_emoji} **טרנד חודשי {trend_label}: {abs(trend_pct):.1f}%/חודש** | "
+                f"מרחק לתאריך: {months:.1f} חודשים | "
+                f"מקדם תיקון: ×{result['trend_multiplier']:.2f}"
+            )
+
         # 3 hero metrics
         rc1, rc2, rc3 = st.columns(3)
         with rc1:
             st.metric("🎯 הערכה מרכזית (מדיאן)", f"{result['median']:.2f}",
-                      delta=f"{result['median'] - profile['mean_rating']:.2f} מהממוצע ההיסטורי",
-                      help="חיזוי המדיאן ברצועה")
+                      delta=f"{result['median'] - result['recent_mean_90d']:.2f} מ-90 ימים אחרונים",
+                      help="חיזוי המדיאן ברצועה (כולל תיקון טרנד)")
         with rc2:
             st.metric("⬇️ תרחיש שמרני", f"{result['ci_low']:.2f}",
                       help="הקצה הנמוך של הצפי")
         with rc3:
             st.metric("⬆️ תרחיש אופטימי", f"{result['ci_high']:.2f}",
                       help="הקצה הגבוה של הצפי")
+
+        # Recent baseline
+        st.caption(f"🔵 **ממוצע 90 ימים אחרונים** של {program}: **{result['recent_mean_90d']:.2f}** "
+                   f"(לעומת ממוצע מלא: {result['profile']['mean_rating']:.2f}). "
+                   f"החיזוי משתמש ב-window עדכני + תיקון טרנד.")
 
         st.divider()
 

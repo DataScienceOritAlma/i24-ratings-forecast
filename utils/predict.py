@@ -55,22 +55,47 @@ def load_model():
     return joblib.load(MODEL_PATH)
 
 
+def compute_recent_trend(history_df: pd.DataFrame, program_name: str,
+                          lookback_months: int = 3) -> float:
+    """Compute month-over-month rating growth in recent months.
+    Returns mean MoM growth rate (e.g., 0.05 = 5% per month)."""
+    h = history_df[history_df["שם תוכנית_מקור"] == program_name].copy()
+    if len(h) < 5:
+        h = history_df.copy()  # fall back to global trend
+    h["month"] = pd.to_datetime(h["תאריך שידור"]).dt.to_period("M")
+    monthly = h.groupby("month")["רייטינג"].mean().tail(lookback_months + 1)
+    if len(monthly) < 2:
+        return 0.0
+    pct_changes = monthly.pct_change().dropna()
+    if len(pct_changes) == 0:
+        return 0.0
+    trend = float(pct_changes.mean())
+    return max(min(trend, 0.20), -0.20)  # clamp to [-20%, +20%] / month
+
+
 def compute_lag_features(history_df: pd.DataFrame,
                          program_name: str,
                          target_date,
                          hour: int,
                          status: str,
-                         is_rerun: bool) -> dict:
-    """Compute lag features as if we're predicting for a hypothetical row
-    on target_date, using all history strictly before target_date.
+                         is_rerun: bool,
+                         recent_window_days: int = 90) -> dict:
+    """Compute lag features for a hypothetical future row.
 
-    Returns a dict of all features needed by the saved pipeline.
+    Uses ONLY the last `recent_window_days` of history (default 90) to make
+    predictions track recent trends rather than the multi-year mean.
     """
     target_date = pd.to_datetime(target_date)
     weekday_he = date_to_weekday_he(target_date)
 
     # All history strictly before target_date
-    h = history_df[history_df["תאריך שידור"] < target_date].copy()
+    h_full = history_df[history_df["תאריך שידור"] < target_date].copy()
+    # Recent window
+    cutoff = target_date - pd.Timedelta(days=recent_window_days)
+    h = h_full[h_full["תאריך שידור"] >= cutoff].copy()
+    # If recent window has too few rows, fall back to fuller history
+    if len(h) < 200:
+        h = h_full
 
     # ---- Program lag (this exact program's history) ----
     prog_hist = h[h["שם תוכנית_מקור"] == program_name]
@@ -192,17 +217,38 @@ def predict_range(history_df: pd.DataFrame,
                   daypart: str,
                   status: Optional[str] = None,
                   is_rerun: Optional[bool] = None,
-                  is_special_event: bool = False) -> dict:
-    """Predict for a daypart (range) — runs the model for each hour in the
-    daypart and returns the min/median/max as the prediction range."""
+                  is_special_event: bool = False,
+                  apply_trend_correction: bool = True) -> dict:
+    """Predict for a daypart (range). Runs model per hour + applies trend correction.
+
+    Trend correction: if last 3 months show monthly growth of X%, the prediction
+    for a date N months ahead is multiplied by (1 + X)^N.
+    This corrects for the model's tendency to under-predict when historical
+    averages are dominated by lower-rating early periods.
+    """
     hours = daypart_to_hours(daypart)
     profile = get_program_profile(history_df, program_name)
 
-    # Smart defaults
     if status is None:
         status = profile["typical_status"]
     if is_rerun is None:
         is_rerun = status in ["ש.ח", "לקט"]
+
+    # ---- Compute trend correction factor ----
+    target_date = pd.to_datetime(target_date)
+    last_data_date = history_df["תאריך שידור"].max()
+    months_ahead = max(0, (target_date - last_data_date).days / 30.0)
+    monthly_trend = compute_recent_trend(history_df, program_name, lookback_months=3)
+    trend_multiplier = (1.0 + monthly_trend) ** months_ahead if apply_trend_correction else 1.0
+    # Clamp to reasonable range
+    trend_multiplier = max(0.5, min(2.5, trend_multiplier))
+
+    # ---- Recent baseline for sanity check ----
+    h_recent = history_df[
+        (history_df["שם תוכנית_מקור"] == program_name) &
+        (history_df["תאריך שידור"] >= last_data_date - pd.Timedelta(days=90))
+    ]
+    recent_mean = float(h_recent["רייטינג"].mean()) if len(h_recent) > 0 else profile["mean_rating"]
 
     predictions = []
     for hour in hours:
@@ -215,11 +261,16 @@ def predict_range(history_df: pd.DataFrame,
                 status=status,
                 is_rerun=is_rerun,
             )
+            # Apply trend correction
+            corrected_point = r["point"] * trend_multiplier
+            corrected_low = r["ci_low"] * trend_multiplier
+            corrected_high = r["ci_high"] * trend_multiplier
             predictions.append({
                 "hour": hour,
-                "point": r["point"],
-                "ci_low": r["ci_low"],
-                "ci_high": r["ci_high"],
+                "point": round(corrected_point, 3),
+                "ci_low": round(corrected_low, 3),
+                "ci_high": round(corrected_high, 3),
+                "raw_point": r["point"],  # before trend correction
             })
         except Exception:
             pass
@@ -237,6 +288,10 @@ def predict_range(history_df: pd.DataFrame,
         "ci_high": round(max(p["ci_high"] for p in predictions), 3),
         "n_hours": len(predictions),
         "profile": profile,
+        "monthly_trend": round(monthly_trend * 100, 1),  # as percentage
+        "trend_multiplier": round(trend_multiplier, 3),
+        "months_ahead": round(months_ahead, 1),
+        "recent_mean_90d": round(recent_mean, 3),
     }
 
 
