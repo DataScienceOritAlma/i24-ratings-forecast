@@ -237,7 +237,7 @@ if predict_clicked:
                           </div>
                           <div style="font-size:0.9em; color:#6B7280; line-height:1.6;">
                             [{sc['ci_low']:.2f}, {sc['ci_high']:.2f}]<br>
-                            <strong>{sc['viewers']['viewers']:,}</strong> צופים
+                            <strong>{sc['viewers']:,}</strong> צופים
                           </div>
                         </div>
                         """,
