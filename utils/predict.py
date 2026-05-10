@@ -168,22 +168,55 @@ def compute_lag_features(history_df: pd.DataFrame,
     return feats
 
 
+def _parse_time_str(time_str) -> tuple:
+    """Parse '19:50:00' or '19:50' or 19 → (hour, minute)."""
+    s = str(time_str)
+    if ":" in s:
+        parts = s.split(":")
+        return int(parts[0]), int(parts[1]) if len(parts) > 1 else 0
+    try:
+        return int(float(s)), 0
+    except Exception:
+        return 20, 0
+
+
 def get_program_profile(history_df: pd.DataFrame, program_name: str) -> dict:
-    """Get the historical profile of a program — typical day, hour, status,
-    and rating distribution. Used for smart defaults in the prediction UI."""
+    """Get the historical profile of a program. Returns FULL start time (HH:MM)
+    and median duration so UI can show real values, not just hour buckets."""
     h = history_df[history_df["שם תוכנית_מקור"] == program_name]
     if len(h) == 0:
         return {
             "exists": False,
             "n_airings": 0,
-            "mean_rating": history_df["רייטינג"].mean(),
-            "median_rating": history_df["רייטינג"].median(),
+            "mean_rating": float(history_df["רייטינג"].mean()),
+            "median_rating": float(history_df["רייטינג"].median()),
             "typical_day": "ראשון",
-            "typical_hour": 20,
+            "typical_start_hour": 20,
+            "typical_start_minute": 0,
+            "typical_duration_min": 60,
             "typical_status": "חי",
-            "typical_daypart": hour_to_daypart(20),
             "rating_std": 0.3,
         }
+
+    # Use only LIVE broadcasts for "typical" start time (reruns/lakat
+    # dominate the mode but aren't the program's main slot).
+    # Status values: "שידור חי", "שידור חוזר", "לקט", "מבזק/חדש", "חג"
+    h_live = h[h["סטטוס תוכנית"].astype(str).str.contains("חי", na=False)]
+    h_for_typical = h_live if len(h_live) >= 3 else h
+
+    # Typical start time — mode of full HH:MM string from live broadcasts
+    if "שעת התחלה" in h_for_typical.columns:
+        mode_time = h_for_typical["שעת התחלה"].mode()
+        ts = str(mode_time.iloc[0]) if len(mode_time) else "20:00:00"
+        start_h, start_m = _parse_time_str(ts)
+    else:
+        start_h, start_m = 20, 0
+
+    # Typical duration — also from live broadcasts
+    if "משך תוכנית_דק" in h_for_typical.columns:
+        typical_dur = int(h_for_typical["משך תוכנית_דק"].median())
+    else:
+        typical_dur = 60
 
     return {
         "exists": True,
@@ -194,11 +227,11 @@ def get_program_profile(history_df: pd.DataFrame, program_name: str) -> dict:
         "max_rating": float(h["רייטינג"].max()),
         "rating_std": float(h["רייטינג"].std()),
         "typical_day": h["יום שידור"].mode().iloc[0] if len(h["יום שידור"].mode()) else "ראשון",
-        "typical_hour": int(h["שעת התחלה_שעה"].mode().iloc[0]) if len(h["שעת התחלה_שעה"].mode()) else 20,
+        "typical_start_hour": start_h,
+        "typical_start_minute": start_m,
+        "typical_duration_min": typical_dur,
         "typical_status": h["סטטוס תוכנית"].mode().iloc[0] if len(h["סטטוס תוכנית"].mode()) else "חי",
-        "typical_daypart": h["חלקי-יום"].mode().iloc[0] if len(h["חלקי-יום"].mode()) else hour_to_daypart(20),
         "days_distribution": h["יום שידור"].value_counts().to_dict(),
-        "hours_distribution": h["שעת התחלה_שעה"].value_counts().to_dict(),
     }
 
 
@@ -236,7 +269,7 @@ def predict_range(history_df: pd.DataFrame,
     if status is None:
         status = profile["typical_status"]
     if is_rerun is None:
-        is_rerun = status in ["ש.ח", "לקט"]
+        is_rerun = "חוזר" in str(status) or "לקט" in str(status)
 
     # ---- Compute trend correction factor ----
     target_date = pd.to_datetime(target_date)
@@ -332,21 +365,26 @@ def predict_time_range(history_df: pd.DataFrame,
                         is_security: bool = False,
                         event_tag: str = "—",
                         apply_trend_correction: bool = True) -> dict:
-    """Predict for an exact time range (e.g., 19:50–22:00).
-    Decomposes into hours, predicts each, returns weighted-average + range."""
-    hour_weights = time_range_to_hour_weights(start_hour, start_min, end_hour, end_min)
-    if not hour_weights:
-        return None
+    """Predict for the entire program (start–end is the duration).
+
+    The model was trained with one prediction per broadcast — using the START
+    hour as the hour feature and the full duration. We do the same here:
+    ONE prediction per broadcast, NOT one per hour.
+    """
+    # Compute total duration
+    if (end_hour, end_min) <= (start_hour, start_min):
+        duration_min = (end_hour + 24) * 60 + end_min - (start_hour * 60 + start_min)
+    else:
+        duration_min = (end_hour * 60 + end_min) - (start_hour * 60 + start_min)
+    duration_min = max(5, duration_min)
 
     profile = get_program_profile(history_df, program_name)
     if status is None:
         status = profile["typical_status"]
     if is_rerun is None:
-        is_rerun = status in ["ש.ח", "לקט"]
+        is_rerun = "חוזר" in str(status) or "לקט" in str(status)
 
-    duration_min = sum(w for _, w in hour_weights)
-
-    # Trend correction setup
+    # Trend correction
     target_date = pd.to_datetime(target_date)
     last_data_date = history_df["תאריך שידור"].max()
     months_ahead = max(0, (target_date - last_data_date).days / 30.0)
@@ -361,53 +399,35 @@ def predict_time_range(history_df: pd.DataFrame,
     ]
     recent_mean = float(h_recent["רייטינג"].mean()) if len(h_recent) > 0 else profile["mean_rating"]
 
-    # Predict for each hour in range
-    predictions = []
-    for (hr, mins) in hour_weights:
-        try:
-            r = predict_with_uncertainty(
-                history_df=history_df,
-                program_name=program_name,
-                target_date=target_date,
-                hour=hr,
-                status=status,
-                is_rerun=is_rerun,
-                duration_min=duration_min,
-                is_holiday=is_holiday,
-                is_security=is_security,
-                event_tag=event_tag,
-            )
-            predictions.append({
-                "hour": hr,
-                "minutes": mins,
-                "weight": mins / duration_min,
-                "point": round(r["point"] * trend_multiplier, 3),
-                "ci_low": round(r["ci_low"] * trend_multiplier, 3),
-                "ci_high": round(r["ci_high"] * trend_multiplier, 3),
-                "raw_point": r["point"],
-            })
-        except Exception:
-            pass
-
-    if not predictions:
+    # Single prediction using the START hour + full duration
+    try:
+        r = predict_with_uncertainty(
+            history_df=history_df,
+            program_name=program_name,
+            target_date=target_date,
+            hour=start_hour,
+            status=status,
+            is_rerun=is_rerun,
+            duration_min=duration_min,
+            is_holiday=is_holiday,
+            is_security=is_security,
+            event_tag=event_tag,
+        )
+    except Exception as e:
         return None
 
-    # Weighted average across the time range
-    weighted_pred = sum(p["point"] * p["weight"] for p in predictions)
-    weighted_low = sum(p["ci_low"] * p["weight"] for p in predictions)
-    weighted_high = sum(p["ci_high"] * p["weight"] for p in predictions)
-    points = [p["point"] for p in predictions]
+    point = r["point"] * trend_multiplier
+    low = r["ci_low"] * trend_multiplier
+    high = r["ci_high"] * trend_multiplier
 
     return {
-        "weighted_avg": round(weighted_pred, 3),
-        "median": round(float(np.median(points)), 3),
-        "min": round(float(min(points)), 3),
-        "max": round(float(max(points)), 3),
-        "ci_low": round(weighted_low, 3),
-        "ci_high": round(weighted_high, 3),
-        "predictions": predictions,
+        "prediction": round(point, 3),
+        "ci_low": round(low, 3),
+        "ci_high": round(high, 3),
+        "raw_prediction": round(r["point"], 3),
         "duration_min": duration_min,
-        "n_hours": len(predictions),
+        "start_time": f"{start_hour:02d}:{start_min:02d}",
+        "end_time": f"{end_hour:02d}:{end_min:02d}",
         "profile": profile,
         "monthly_trend": round(monthly_trend * 100, 1),
         "trend_multiplier": round(trend_multiplier, 3),
@@ -415,6 +435,8 @@ def predict_time_range(history_df: pd.DataFrame,
         "recent_mean_90d": round(recent_mean, 3),
         "is_holiday": is_holiday,
         "is_security": is_security,
+        "lag_program_n": r.get("lag_program_n", 0),
+        "is_cold_start": r.get("is_cold_start", False),
     }
 
 

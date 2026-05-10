@@ -1,20 +1,18 @@
 # -*- coding: utf-8 -*-
-"""Future-prediction page — exact time range + event selector.
-
+"""Future-prediction page — single prediction per broadcast.
 User specifies start/end times (HH:MM) and optional special event;
-the model returns a weighted-average prediction with a range.
+the model returns ONE prediction (not per-hour averaged).
 """
 from datetime import datetime, time, timedelta
 
 import pandas as pd
-import plotly.express as px
 import plotly.graph_objects as go
 import streamlit as st
 
 from utils.auth import require_password
 from utils.data_loader import load_processed
 from utils.predict import (predict_time_range, get_program_profile,
-                            date_to_weekday_he, hour_to_daypart)
+                            date_to_weekday_he)
 
 st.set_page_config(page_title="חיזוי עתידי | i24", page_icon="🎯", layout="wide")
 st.markdown("""
@@ -28,12 +26,12 @@ st.markdown("""
 require_password()
 
 st.title("🎯 חיזוי תוכנית עתידית")
-st.caption("בחר תוכנית, תאריך, וטווח שעות מדוייק. רק 2 שדות חובה (תוכנית + תאריך) — השאר עם ברירות-מחדל חכמות.")
+st.caption("בחר תוכנית, תאריך, וטווח שעות מדוייק. רק 2 שדות חובה — השאר עם ברירות-מחדל מההיסטוריה.")
 
 df = load_processed()
 
 # ==========================================================================
-# Section 1: Mandatory inputs (program + date)
+# Section 1: Mandatory inputs
 # ==========================================================================
 st.markdown("### 📋 פרטי החיזוי")
 
@@ -57,66 +55,61 @@ with col2:
         max_value=(last_date + timedelta(days=365)).date(),
     )
 
-# ---- Program profile preview ----
+# ---- Program profile preview (no "typical hour" — confusing) ----
 profile = get_program_profile(df, program)
-
-# Compute typical start/end time from history
-prog_hist = df[df["שם תוכנית_מקור"] == program]
-typical_start_h = profile["typical_hour"]
-# Estimate end time from typical duration in history
-if "משך תוכנית_דק" in prog_hist.columns and len(prog_hist) > 0:
-    typical_dur = int(prog_hist["משך תוכנית_דק"].median())
-else:
-    typical_dur = 60
-typical_end_h = (typical_start_h + (typical_dur // 60)) % 24
-typical_end_m = typical_dur % 60
 
 with st.container(border=True):
     st.markdown(f"#### 📺 פרופיל היסטורי של *{program}*")
-    pc1, pc2, pc3, pc4 = st.columns(4)
+    pc1, pc2, pc3 = st.columns(3)
     with pc1:
         st.metric("שידורים בעבר", f"{profile['n_airings']:,}")
     with pc2:
-        st.metric("רייטינג ממוצע", f"{profile['mean_rating']:.2f}")
+        st.metric("רייטינג ממוצע (כל הזמנים)", f"{profile['mean_rating']:.2f}")
     with pc3:
         st.metric("יום נפוץ", profile["typical_day"])
-    with pc4:
-        st.metric("שעה טיפוסית", f"{typical_start_h:02d}:00")
 
 # ==========================================================================
-# Section 2: Optional — exact time range
+# Section 2: Time range — defaults from history but no "typical hour" label
 # ==========================================================================
-st.markdown("### ⏰ שעת השידור (אופציונלי)")
-st.caption(f"💡 ברירת-מחדל מבוססת על הזמן הטיפוסי של *{program}*. שני אם השידור מתוכנן בשעה שונה.")
+st.markdown("### ⏰ שעת השידור")
+st.caption("ברירות-מחדל מבוססות על שעת התחלה ומשך טיפוסיים בהיסטוריה. שני אם השידור מתוכנן בשעה אחרת.")
+
+default_start_h = profile["typical_start_hour"]
+default_start_m = profile["typical_start_minute"]
+default_dur = profile["typical_duration_min"]
+
+# Compute default end time
+end_total = default_start_h * 60 + default_start_m + default_dur
+default_end_h = (end_total // 60) % 24
+default_end_m = end_total % 60
 
 tc1, tc2 = st.columns(2)
 with tc1:
     start_time = st.time_input(
         "🕐 שעת התחלה",
-        value=time(typical_start_h, 0),
-        step=300,  # 5-minute increments
+        value=time(default_start_h, default_start_m),
+        step=300,
     )
 with tc2:
     end_time = st.time_input(
         "🕓 שעת סיום",
-        value=time(typical_end_h, typical_end_m),
+        value=time(default_end_h, default_end_m),
         step=300,
     )
 
-# Validate / show duration
 def time_to_minutes(t):
     return t.hour * 60 + t.minute
 
 duration_min = time_to_minutes(end_time) - time_to_minutes(start_time)
 if duration_min <= 0:
-    duration_min += 24 * 60  # wraps past midnight
+    duration_min += 24 * 60
 
 if duration_min < 5:
-    st.error("⚠️ הסיום חייב להיות אחרי ההתחלה. הגדירי טווח ארוך יותר.")
+    st.error("⚠️ הסיום חייב להיות אחרי ההתחלה.")
 elif duration_min > 6 * 60:
     st.warning(f"⚠️ הטווח שלך ({duration_min} דק') ארוך מ-6 שעות — בטוח?")
 else:
-    st.caption(f"⏱️ משך מחושב: **{duration_min} דקות** "
+    st.caption(f"⏱️ משך השידור: **{duration_min} דקות** "
                f"({duration_min // 60}h {duration_min % 60}m)")
 
 # ==========================================================================
@@ -148,7 +141,6 @@ with ec2:
         index=0,
     )
 
-# Map event choice to flags
 is_holiday = event_choice == "🕊️ חג"
 is_security = event_choice in ["⚠️ אירוע ביטחוני", "🌍 אירוע מדיני", "📰 ברייקינג / מבזק"]
 event_tag_map = {
@@ -189,7 +181,8 @@ elif st.button("🚀 חזה רייטינג", type="primary", use_container_width
         st.markdown(f"## 📊 חיזוי ל-*{program}*")
         st.caption(
             f"{weekday_he} {date_str} | "
-            f"{start_time.strftime('%H:%M')}–{end_time.strftime('%H:%M')} ({result['duration_min']} דק') | "
+            f"{start_time.strftime('%H:%M')}–{end_time.strftime('%H:%M')} "
+            f"({result['duration_min']} דק') | "
             f"סטטוס: {chosen_status} | "
             f"אירוע: {event_choice}"
         )
@@ -208,11 +201,10 @@ elif st.button("🚀 חזה רייטינג", type="primary", use_container_width
         # 3 hero metrics
         rc1, rc2, rc3 = st.columns(3)
         with rc1:
-            delta = result["weighted_avg"] - result["recent_mean_90d"]
-            st.metric("🎯 חיזוי משוקלל",
-                      f"{result['weighted_avg']:.2f}",
-                      delta=f"{delta:+.2f} מ-90 ימים אחרונים",
-                      help="ממוצע משוקלל לפי דקות בכל שעה בטווח")
+            delta = result["prediction"] - result["recent_mean_90d"]
+            st.metric("🎯 רייטינג צפוי",
+                      f"{result['prediction']:.2f}",
+                      delta=f"{delta:+.2f} מ-90 ימים אחרונים")
         with rc2:
             st.metric("⬇️ תרחיש שמרני", f"{result['ci_low']:.2f}")
         with rc3:
@@ -221,29 +213,8 @@ elif st.button("🚀 חזה רייטינג", type="primary", use_container_width
         st.caption(f"🔵 **ממוצע 90 ימים אחרונים** של {program}: **{result['recent_mean_90d']:.2f}** "
                    f"(לעומת ממוצע מלא: {profile['mean_rating']:.2f})")
 
-        st.divider()
-
-        # ----- Per-hour breakdown -----
-        st.markdown("### 🕐 חלוקה לפי שעות בתוך הטווח")
-        details = pd.DataFrame(result["predictions"])
-        details["שעה"] = details["hour"].apply(lambda h: f"{h:02d}:00")
-        details["דקות"] = details["minutes"]
-        details["משקל"] = (details["weight"] * 100).round(0).astype(int).astype(str) + "%"
-        details_display = details[["שעה", "דקות", "משקל", "point", "ci_low", "ci_high"]].copy()
-        details_display.columns = ["שעה", "דקות בשעה זו", "משקל", "חיזוי", "שמרני", "אופטימי"]
-        st.dataframe(details_display, use_container_width=True, hide_index=True)
-
-        # Bar chart per hour with weights
-        fig = px.bar(
-            details, x="שעה", y="point",
-            error_y=details["ci_high"] - details["point"],
-            error_y_minus=details["point"] - details["ci_low"],
-            text="weight",
-            title="חיזוי לכל שעה בטווח (גובה = חיזוי, טקסט = משקל בממוצע)",
-            height=350,
-        )
-        fig.update_traces(texttemplate="%{text:.0%}", textposition="outside")
-        st.plotly_chart(fig, use_container_width=True)
+        if result.get("is_cold_start"):
+            st.warning("⚠️ Cold-start — לתוכנית הזאת אין היסטוריה. הדיוק נמוך משמעותית.")
 
         st.divider()
 
@@ -251,31 +222,31 @@ elif st.button("🚀 חזה רייטינג", type="primary", use_container_width
         st.markdown("### 📈 הקשר היסטורי")
         prog_hist = df[df["שם תוכנית_מקור"] == program].sort_values("תאריך שידור")
         if len(prog_hist) > 0:
-            fig2 = go.Figure()
-            fig2.add_trace(go.Scatter(
+            fig = go.Figure()
+            fig.add_trace(go.Scatter(
                 x=prog_hist["תאריך שידור"], y=prog_hist["רייטינג"],
                 mode="markers", name="היסטוריה",
                 marker=dict(color="#a0aec0", size=5, opacity=0.5),
             ))
-            fig2.add_hline(y=profile["mean_rating"], line_dash="dot", line_color="#666",
-                           annotation_text=f"ממוצע מלא: {profile['mean_rating']:.2f}")
-            fig2.add_hline(y=result["recent_mean_90d"], line_dash="dash", line_color="#0066cc",
-                           annotation_text=f"ממוצע 90 יום: {result['recent_mean_90d']:.2f}")
+            fig.add_hline(y=profile["mean_rating"], line_dash="dot", line_color="#666",
+                          annotation_text=f"ממוצע מלא: {profile['mean_rating']:.2f}")
+            fig.add_hline(y=result["recent_mean_90d"], line_dash="dash", line_color="#0066cc",
+                          annotation_text=f"ממוצע 90 יום: {result['recent_mean_90d']:.2f}")
             tdate = pd.to_datetime(target_date)
-            fig2.add_trace(go.Scatter(
+            fig.add_trace(go.Scatter(
                 x=[tdate, tdate], y=[result["ci_low"], result["ci_high"]],
                 mode="lines", line=dict(color="orange", width=8), name="טווח חיזוי",
             ))
-            fig2.add_trace(go.Scatter(
-                x=[tdate], y=[result["weighted_avg"]],
+            fig.add_trace(go.Scatter(
+                x=[tdate], y=[result["prediction"]],
                 mode="markers",
                 marker=dict(color="orange", size=18, symbol="star",
                             line=dict(color="darkorange", width=2)),
-                name="חיזוי משוקלל",
+                name="חיזוי",
             ))
-            fig2.update_layout(height=400, hovermode="x unified",
-                               xaxis_title="תאריך", yaxis_title="רייטינג")
-            st.plotly_chart(fig2, use_container_width=True)
+            fig.update_layout(height=400, hovermode="x unified",
+                              xaxis_title="תאריך", yaxis_title="רייטינג")
+            st.plotly_chart(fig, use_container_width=True)
 
         with st.expander("⚠️ מה המודל לא יודע"):
             st.warning("""
