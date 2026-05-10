@@ -564,10 +564,9 @@ def predict_scenarios(history_df: pd.DataFrame, program_name: str,
                        target_date, start_hour: int, start_min: int,
                        end_hour: int, end_min: int,
                        status: Optional[str] = None) -> list:
-    """Generate predictions for 3 scenarios: routine, holiday, special event."""
+    """Generate predictions for 2 scenarios: routine vs special event."""
     scenarios = [
         {"name": "🟢 שגרה", "is_holiday": False, "is_security": False, "tag": "—"},
-        {"name": "🕊️ חג", "is_holiday": True, "is_security": False, "tag": "חג"},
         {"name": "⚠️ אירוע מיוחד", "is_holiday": False, "is_security": True, "tag": "מיוחד"},
     ]
     results = []
