@@ -139,6 +139,107 @@ def compute_lag_features(history_df: pd.DataFrame,
     return feats
 
 
+def get_program_profile(history_df: pd.DataFrame, program_name: str) -> dict:
+    """Get the historical profile of a program — typical day, hour, status,
+    and rating distribution. Used for smart defaults in the prediction UI."""
+    h = history_df[history_df["שם תוכנית_מקור"] == program_name]
+    if len(h) == 0:
+        return {
+            "exists": False,
+            "n_airings": 0,
+            "mean_rating": history_df["רייטינג"].mean(),
+            "median_rating": history_df["רייטינג"].median(),
+            "typical_day": "ראשון",
+            "typical_hour": 20,
+            "typical_status": "חי",
+            "typical_daypart": hour_to_daypart(20),
+            "rating_std": 0.3,
+        }
+
+    return {
+        "exists": True,
+        "n_airings": len(h),
+        "mean_rating": float(h["רייטינג"].mean()),
+        "median_rating": float(h["רייטינג"].median()),
+        "min_rating": float(h["רייטינג"].min()),
+        "max_rating": float(h["רייטינג"].max()),
+        "rating_std": float(h["רייטינג"].std()),
+        "typical_day": h["יום שידור"].mode().iloc[0] if len(h["יום שידור"].mode()) else "ראשון",
+        "typical_hour": int(h["שעת התחלה_שעה"].mode().iloc[0]) if len(h["שעת התחלה_שעה"].mode()) else 20,
+        "typical_status": h["סטטוס תוכנית"].mode().iloc[0] if len(h["סטטוס תוכנית"].mode()) else "חי",
+        "typical_daypart": h["חלקי-יום"].mode().iloc[0] if len(h["חלקי-יום"].mode()) else hour_to_daypart(20),
+        "days_distribution": h["יום שידור"].value_counts().to_dict(),
+        "hours_distribution": h["שעת התחלה_שעה"].value_counts().to_dict(),
+    }
+
+
+def daypart_to_hours(daypart: str) -> list:
+    """Map a daypart label to representative hours (for range prediction)."""
+    mapping = {
+        "1. בוקר 06–09": [6, 7, 8, 9],
+        "2. צהריים 10–13": [10, 11, 12, 13],
+        '3. אחה"צ 14–17': [14, 15, 16, 17],
+        "4. פריים-טיים 18–21": [18, 19, 20, 21],
+        "5. לילה 22–01": [22, 23, 0, 1],
+        "6. לילה מאוחר 02–05": [2, 3, 4, 5],
+    }
+    return mapping.get(daypart, [20])
+
+
+def predict_range(history_df: pd.DataFrame,
+                  program_name: str,
+                  target_date,
+                  daypart: str,
+                  status: Optional[str] = None,
+                  is_rerun: Optional[bool] = None,
+                  is_special_event: bool = False) -> dict:
+    """Predict for a daypart (range) — runs the model for each hour in the
+    daypart and returns the min/median/max as the prediction range."""
+    hours = daypart_to_hours(daypart)
+    profile = get_program_profile(history_df, program_name)
+
+    # Smart defaults
+    if status is None:
+        status = profile["typical_status"]
+    if is_rerun is None:
+        is_rerun = status in ["ש.ח", "לקט"]
+
+    predictions = []
+    for hour in hours:
+        try:
+            r = predict_with_uncertainty(
+                history_df=history_df,
+                program_name=program_name,
+                target_date=target_date,
+                hour=hour,
+                status=status,
+                is_rerun=is_rerun,
+            )
+            predictions.append({
+                "hour": hour,
+                "point": r["point"],
+                "ci_low": r["ci_low"],
+                "ci_high": r["ci_high"],
+            })
+        except Exception:
+            pass
+
+    if not predictions:
+        return None
+
+    points = [p["point"] for p in predictions]
+    return {
+        "predictions": predictions,
+        "median": round(float(np.median(points)), 3),
+        "min": round(float(min(points)), 3),
+        "max": round(float(max(points)), 3),
+        "ci_low": round(min(p["ci_low"] for p in predictions), 3),
+        "ci_high": round(max(p["ci_high"] for p in predictions), 3),
+        "n_hours": len(predictions),
+        "profile": profile,
+    }
+
+
 def predict_with_uncertainty(history_df: pd.DataFrame, **kwargs) -> dict:
     """Predict with a confidence interval estimated from per-slot historical std.
 
