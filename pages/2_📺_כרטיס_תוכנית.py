@@ -25,9 +25,14 @@ df = load_processed()
 preds = load_predictions()
 pred_col = best_model_column()
 
-# ---------- Program selector ----------
-all_programs = sorted(df["שם תוכנית_מקור"].dropna().unique())
-program = st.selectbox("בחרי תוכנית-מקור", options=all_programs, index=0)
+# ---------- Program selector — only programs that have predictions ----------
+progs_with_preds = sorted(preds["שם תוכנית_מקור"].dropna().unique())
+program = st.selectbox(
+    f"בחרי תוכנית-מקור ({len(progs_with_preds)} תוכניות עם חיזויים)",
+    options=progs_with_preds,
+    index=0,
+    help="מוצגות רק תוכניות שיש להן חיזויים בקובץ predictions_all.xlsx",
+)
 
 prog_hist = df[df["שם תוכנית_מקור"] == program].sort_values("תאריך שידור").copy()
 prog_test = preds[preds["שם תוכנית_מקור"] == program].sort_values("תאריך שידור").copy()
