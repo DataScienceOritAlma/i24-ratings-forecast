@@ -79,7 +79,11 @@ def compute_lag_features(history_df: pd.DataFrame,
                          hour: int,
                          status: str,
                          is_rerun: bool,
-                         recent_window_days: int = 90) -> dict:
+                         recent_window_days: int = 90,
+                         duration_min: int = 30,
+                         is_holiday: bool = False,
+                         is_security: bool = False,
+                         event_tag: str = "—") -> dict:
     """Compute lag features for a hypothetical future row.
 
     Uses ONLY the last `recent_window_days` of history (default 90) to make
@@ -138,7 +142,7 @@ def compute_lag_features(history_df: pd.DataFrame,
     # ---- Date features ----
     feats = {
         "שעת התחלה_שעה": hour,
-        "משך תוכנית_דק": 30,
+        "משך תוכנית_דק": duration_min,
         "reception_pct": estimate_reception_pct(target_date),
         "חודש": target_date.month,
         "יום_בחודש": target_date.day,
@@ -151,15 +155,15 @@ def compute_lag_features(history_df: pd.DataFrame,
         "lag_status_slot_n": lag_status_slot_n,
         **comp_lags,
         "is_rerun": is_rerun,
-        "יום_חג": False,
-        "יום_ביטחוני": False,
+        "יום_חג": is_holiday,
+        "יום_ביטחוני": is_security,
         "שבת": weekday_he == "שבת",
         "יום שידור": weekday_he,
         "חלקי-יום": hour_to_daypart(hour),
         "סטטוס תוכנית": status,
         "תג_עונה": "—",
-        "תג_חג": "—",
-        "תג_ביטחוני": "—",
+        "תג_חג": event_tag if is_holiday else "—",
+        "תג_ביטחוני": event_tag if is_security else "—",
     }
     return feats
 
@@ -292,6 +296,125 @@ def predict_range(history_df: pd.DataFrame,
         "trend_multiplier": round(trend_multiplier, 3),
         "months_ahead": round(months_ahead, 1),
         "recent_mean_90d": round(recent_mean, 3),
+    }
+
+
+def time_range_to_hour_weights(start_hour: int, start_min: int,
+                                 end_hour: int, end_min: int) -> list:
+    """Decompose a time range into (hour, minutes_in_that_hour) pairs.
+    Handles wrap-around past midnight."""
+    if (end_hour, end_min) <= (start_hour, start_min):
+        end_hour += 24
+
+    weights = []
+    cur_h, cur_m = start_hour, start_min
+    while (cur_h, cur_m) < (end_hour, end_min):
+        next_boundary = (cur_h + 1, 0)
+        if next_boundary <= (end_hour, end_min):
+            mins_in_hour = (next_boundary[0] * 60) - (cur_h * 60 + cur_m)
+            weights.append((cur_h % 24, mins_in_hour))
+            cur_h, cur_m = next_boundary
+        else:
+            mins_in_hour = (end_hour * 60 + end_min) - (cur_h * 60 + cur_m)
+            weights.append((cur_h % 24, mins_in_hour))
+            break
+    return weights
+
+
+def predict_time_range(history_df: pd.DataFrame,
+                        program_name: str,
+                        target_date,
+                        start_hour: int, start_min: int,
+                        end_hour: int, end_min: int,
+                        status: Optional[str] = None,
+                        is_rerun: Optional[bool] = None,
+                        is_holiday: bool = False,
+                        is_security: bool = False,
+                        event_tag: str = "—",
+                        apply_trend_correction: bool = True) -> dict:
+    """Predict for an exact time range (e.g., 19:50–22:00).
+    Decomposes into hours, predicts each, returns weighted-average + range."""
+    hour_weights = time_range_to_hour_weights(start_hour, start_min, end_hour, end_min)
+    if not hour_weights:
+        return None
+
+    profile = get_program_profile(history_df, program_name)
+    if status is None:
+        status = profile["typical_status"]
+    if is_rerun is None:
+        is_rerun = status in ["ש.ח", "לקט"]
+
+    duration_min = sum(w for _, w in hour_weights)
+
+    # Trend correction setup
+    target_date = pd.to_datetime(target_date)
+    last_data_date = history_df["תאריך שידור"].max()
+    months_ahead = max(0, (target_date - last_data_date).days / 30.0)
+    monthly_trend = compute_recent_trend(history_df, program_name, lookback_months=3)
+    trend_multiplier = (1.0 + monthly_trend) ** months_ahead if apply_trend_correction else 1.0
+    trend_multiplier = max(0.5, min(2.5, trend_multiplier))
+
+    # Recent baseline
+    h_recent = history_df[
+        (history_df["שם תוכנית_מקור"] == program_name) &
+        (history_df["תאריך שידור"] >= last_data_date - pd.Timedelta(days=90))
+    ]
+    recent_mean = float(h_recent["רייטינג"].mean()) if len(h_recent) > 0 else profile["mean_rating"]
+
+    # Predict for each hour in range
+    predictions = []
+    for (hr, mins) in hour_weights:
+        try:
+            r = predict_with_uncertainty(
+                history_df=history_df,
+                program_name=program_name,
+                target_date=target_date,
+                hour=hr,
+                status=status,
+                is_rerun=is_rerun,
+                duration_min=duration_min,
+                is_holiday=is_holiday,
+                is_security=is_security,
+                event_tag=event_tag,
+            )
+            predictions.append({
+                "hour": hr,
+                "minutes": mins,
+                "weight": mins / duration_min,
+                "point": round(r["point"] * trend_multiplier, 3),
+                "ci_low": round(r["ci_low"] * trend_multiplier, 3),
+                "ci_high": round(r["ci_high"] * trend_multiplier, 3),
+                "raw_point": r["point"],
+            })
+        except Exception:
+            pass
+
+    if not predictions:
+        return None
+
+    # Weighted average across the time range
+    weighted_pred = sum(p["point"] * p["weight"] for p in predictions)
+    weighted_low = sum(p["ci_low"] * p["weight"] for p in predictions)
+    weighted_high = sum(p["ci_high"] * p["weight"] for p in predictions)
+    points = [p["point"] for p in predictions]
+
+    return {
+        "weighted_avg": round(weighted_pred, 3),
+        "median": round(float(np.median(points)), 3),
+        "min": round(float(min(points)), 3),
+        "max": round(float(max(points)), 3),
+        "ci_low": round(weighted_low, 3),
+        "ci_high": round(weighted_high, 3),
+        "predictions": predictions,
+        "duration_min": duration_min,
+        "n_hours": len(predictions),
+        "profile": profile,
+        "monthly_trend": round(monthly_trend * 100, 1),
+        "trend_multiplier": round(trend_multiplier, 3),
+        "months_ahead": round(months_ahead, 1),
+        "recent_mean_90d": round(recent_mean, 3),
+        "is_holiday": is_holiday,
+        "is_security": is_security,
     }
 
 
