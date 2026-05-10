@@ -5,7 +5,7 @@ import pandas as pd
 import plotly.express as px
 
 from utils.auth import require_password
-from utils.data_loader import get_predictions, best_model_column, require_data_or_redirect
+from utils.data_loader import load_predictions, best_model_column
 
 st.set_page_config(page_title="חיזויים | i24", page_icon="📊", layout="wide")
 st.markdown("""
@@ -16,12 +16,11 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 require_password()
-require_data_or_redirect()
 
 st.title("📊 חיזויים — דפדוף וסינון")
 st.caption("חיזויי המודל המוביל (HistGradientBoosting) על תקופת המבחן")
 
-preds = get_predictions()
+preds = load_predictions()
 pred_col = best_model_column()
 
 # ---------- Sidebar filters ----------
