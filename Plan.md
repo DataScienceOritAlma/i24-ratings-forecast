@@ -76,33 +76,42 @@
 - [x] Deployment: Streamlit Community Cloud
 - [x] Persona ראשי: מנהל תוכן
 
-### 🔲 2. הקמת תשתית
-- [ ] יצירת מבנה תיקיות (`app.py`, `pages/`, `utils/`, `data/`)
-- [ ] `data_loader.py` — טעינת `predictions_v2.xlsx` ו-`תוכניות_מעובד.xlsx`
-- [ ] בדיקת תמיכת RTL בעברית ב-Streamlit (CSS hack)
+### ✅ 2. הקמת תשתית (הושלם 2026-05-09)
+- [x] מבנה תיקיות: `app.py`, `pages/`, `utils/`, `.streamlit/`
+- [x] `data_loader.py` — טעינת `predictions_all.xlsx` ו-`תוכניות_מעובד.xlsx` עם cache
+- [x] תמיכת RTL בעברית ב-Streamlit (CSS injection)
+- [x] שכבת password gate (`utils/auth.py`)
 
-### 🔲 3. מסך 1 — לוח חודשי (הראשי)
-- [ ] טבלה/heatmap של 30 יום קדימה
-- [ ] צבע לפי רייטינג צפוי (ירוק/צהוב/אדום)
-- [ ] סימון אירועים ידועים
+### ✅ 3. מסך 1 — דף הבית (הושלם)
+- [x] KPIs: שורות, תוכניות, MAE, R²
+- [x] Top 10 leaderboard
+- [x] תקציר פרוייקט + ניווט
 
-### 🔲 4. מסך 2 — השבוע
-- [ ] תצוגת 7 ימים × רצועות שעות
-- [ ] לחיצה על תוכנית → drill-down
+### ✅ 4. מסך 2 — חיזויים (הושלם)
+- [x] סינון לפי תאריך/יום/חלק-יום/אירוע/תוכנית
+- [x] scatter plot חזוי-מול-אמיתי עם diagonal reference
+- [x] טבלה אינטראקטיבית
 
-### 🔲 5. מסך 3 — כרטיס תוכנית
-- [ ] גרף היסטורי (Plotly time series)
-- [ ] ממוצעים, סטיות תקן
-- [ ] רשימת אירועים שהשפיעו
+### ✅ 5. מסך 3 — כרטיס תוכנית (הושלם)
+- [x] selectbox ל-179 תוכניות
+- [x] time-series Plotly של רייטינג היסטורי + נקודות חזוי
+- [x] הדגשת אירועים מיוחדים בכוכבים אדומים
+- [x] ממוצעים לפי יום שבוע ולפי שעה
 
-### 🔲 6. מסך 4 — השוואה
-- [ ] selector של 2-3 תוכניות
-- [ ] השוואת חיזויים זה לצד זה
+### ✅ 6. מסך 4 — השוואת מודלים (הושלם)
+- [x] leaderboard גרפי
+- [x] MAE לפי חתך (יום/חלק-יום/אירוע/סטטוס) עם בחירת מודלים מרובה
+- [x] השוואה ראש-בראש: A מול B + 10 שורות שכל אחד ניצח
 
-### 🔲 7. פריסה
-- [ ] יצירת GitHub repo (פרטי בהתחלה — נתונים פנימיים של i24)
-- [ ] חיבור ל-Streamlit Community Cloud
-- [ ] README עם הוראות שימוש
+### 🔲 7. פריסה (תשתית מוכנה — חסר חלק ידני)
+- [x] `requirements.txt` עם פינים מדויקים
+- [x] `.gitignore` (כולל secrets, catboost_info, .claude)
+- [x] `README.md` + `DEPLOY.md` עם הוראות צעד-אחר-צעד
+- [x] `git init` + initial commit על branch `main`
+- [ ] **ידני:** יצירת ריפו פרטי ב-https://github.com/new
+- [ ] **ידני:** `git remote add origin ...` + `git push -u origin main`
+- [ ] **ידני:** חיבור ל-https://share.streamlit.io + הזנת `APP_PASSWORD` ב-Secrets
+- [ ] קבלת URL לשיתוף
 
 ---
 

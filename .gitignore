@@ -36,6 +36,16 @@ catboost_info/
 # Claude Code working dir
 .claude/
 
-# Duplicate/intermediate Excels (originals are checked in)
-"תוכניות (1).xlsx"
-"תוכניות (2).xlsx"
+# ----------------------------------------------------------------------
+# DATA FILES — never commit, contain sensitive i24 internal data
+# Users upload these at runtime via Streamlit UI
+# ----------------------------------------------------------------------
+*.xlsx
+*.csv
+
+# IDE / OS
+"CLAUDE - Copy.md"
+"DEPLOY - Copy.md"
+"EDA_REPORT - Copy.md"
+"MENTOR_MEETING_SCRIPT - Copy.md"
+"MODEL_FAQ - Copy.md"

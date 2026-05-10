@@ -6,7 +6,7 @@ import plotly.express as px
 import plotly.graph_objects as go
 
 from utils.auth import require_password
-from utils.data_loader import load_processed, load_predictions, best_model_column
+from utils.data_loader import get_processed, get_predictions, best_model_column, require_data_or_redirect
 
 st.set_page_config(page_title="כרטיס תוכנית | i24", page_icon="📺", layout="wide")
 st.markdown("""
@@ -17,12 +17,13 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 require_password()
+require_data_or_redirect()
 
 st.title("📺 כרטיס תוכנית")
 st.caption("בחרי תוכנית כדי לראות היסטוריה, חיזויים, ושגיאות")
 
-df = load_processed()
-preds = load_predictions()
+df = get_processed()
+preds = get_predictions()
 pred_col = best_model_column()
 
 # ---------- Program selector ----------

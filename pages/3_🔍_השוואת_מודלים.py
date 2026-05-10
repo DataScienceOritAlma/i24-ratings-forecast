@@ -5,7 +5,7 @@ import pandas as pd
 import plotly.express as px
 
 from utils.auth import require_password
-from utils.data_loader import load_predictions, load_metrics_summary
+from utils.data_loader import get_predictions, get_metrics, require_data_or_redirect
 
 st.set_page_config(page_title="השוואת מודלים | i24", page_icon="🔍", layout="wide")
 st.markdown("""
@@ -16,12 +16,16 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 require_password()
+require_data_or_redirect()
 
 st.title("🔍 השוואת מודלים")
 st.caption("כל 19 המודלים שאומנו — דירוג, ניתוח שגיאות לפי חתך, ראש-בראש")
 
-preds = load_predictions()
-summary = load_metrics_summary()
+preds = get_predictions()
+summary = get_metrics()
+if summary is None:
+    st.error("לא נטען גליון 'סיכום מטריקות' מ-predictions_all.xlsx — עברי לדף הבית והעלי מחדש.")
+    st.stop()
 
 # ---------- Leaderboard ----------
 st.subheader("🏆 דירוג כללי")

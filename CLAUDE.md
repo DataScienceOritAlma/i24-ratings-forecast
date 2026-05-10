@@ -31,6 +31,19 @@
 - `Plan.md` — תוכנית העבודה הפעילה
 - `WORK_LOG.md` — לוג כרונולוגי של כל השלבים
 - `MODEL_FAQ.md` — שאלות-ותשובות על בחירת המודלים (לראיון)
+- `README.md` — סקירה כללית באנגלית/עברית של הפרוייקט
+- `DEPLOY.md` — הוראות פריסה ל-GitHub + Streamlit Cloud
+- `MENTOR_PREP.md` — הכנה למפגשי מנטור 3-6 + שאלות לשאול
+- `PRODUCT_VISION.md` — חזון מוצר B2B + GitHub strategy + דאטה נוסף
+
+### אפליקציה (Streamlit, נוסף 2026-05-09)
+- `app.py` — דף הבית
+- `pages/1_📊_חיזויים.py`, `pages/2_📺_כרטיס_תוכנית.py`, `pages/3_🔍_השוואת_מודלים.py`
+- `utils/auth.py` — password gate
+- `utils/data_loader.py` — טעינות cached
+- `.streamlit/config.toml` — תצורה
+- `.streamlit/secrets.toml.example` — תבנית לסיסמה (הקובץ האמיתי ב-gitignore)
+- `requirements.txt` — תלויות לפריסה
 
 ## כללי עבודה
 

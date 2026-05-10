@@ -5,6 +5,52 @@
 
 ---
 
+## 2026-05-09 — שלב 18: בניית אפליקציית Streamlit + תשתית פריסה
+
+נבנה ה-MVP של האפליקציה לפי `Plan.md`. כל הקבצים קומיטו ב-git ראשוני (commit `5631087`, branch `main`).
+
+### מבנה האפליקציה
+
+| קובץ | תפקיד |
+|---|---|
+| `app.py` | דף הבית — KPIs, top 10 leaderboard, ניווט |
+| `pages/1_📊_חיזויים.py` | דפדוף וסינון של 1,957 חיזויים על מבחן + scatter חזוי-מול-אמיתי |
+| `pages/2_📺_כרטיס_תוכנית.py` | drill-down לתוכנית: time-series + ממוצעים לפי יום ושעה + טבלת חיזויים |
+| `pages/3_🔍_השוואת_מודלים.py` | leaderboard + MAE לפי חתך + השוואה ראש-בראש בין שני מודלים |
+| `utils/auth.py` | password gate (קורא מ-`.streamlit/secrets.toml`) |
+| `utils/data_loader.py` | cached loaders ל-XLSX/CSV |
+| `.streamlit/config.toml` | תצורה (RTL via CSS ב-app) |
+| `.streamlit/secrets.toml.example` | תבנית — `secrets.toml` עצמו ב-gitignore |
+| `requirements.txt` | streamlit 1.40, plotly 5.24, pandas, numpy, openpyxl, scikit-learn |
+| `README.md` | סקירה כללית + הוראות הרצה לוקאלית |
+| `DEPLOY.md` | הוראות צעד-אחר-צעד לפריסה ב-GitHub + Streamlit Cloud |
+| `.gitignore` | __pycache__, secrets.toml, catboost_info, .claude, וכו' |
+
+### בדיקה לוקאלית — עברה
+הופעל `streamlit run app.py --server.port 8533` — האפליקציה עלתה, מסך הסיסמה הופיע, HTTP 200.
+
+### Git
+- `git init -b main`
+- 43 קבצים ב-commit ראשון
+- ענף ראשי: `main`
+- אין נתוני סוד בריפו (`secrets.toml` ב-gitignore, רק `.example` נכלל)
+
+### מה הלאה (ידני, צריך משתמשת)
+ראה `DEPLOY.md` להוראות:
+1. יצירת ריפו פרטי ב-https://github.com/new
+2. `git remote add origin URL` + `git push -u origin main`
+3. חיבור ל-https://share.streamlit.io ובחירת הריפו
+4. הזנת `APP_PASSWORD` ב-Streamlit Cloud → Secrets
+5. שיתוף URL + סיסמה לאנשים שתחליט עליהם
+
+### החלטות אבטחה
+- **שכבת אימות:** סיסמה אחת (לא login פר-משתמש) — מספיק ל-MVP, פשוט להפיץ
+- **ריפו פרטי:** מגן על נתוני i24 גם אם מישהו מצליח לעקוף את הסיסמה
+- **Streamlit Cloud (חינמי) תומך בריפואים פרטיים** — אומת לפני הבנייה
+- אם תרצי auth מתקדם בעתיד: `streamlit-authenticator` או Streamlit Teams
+
+---
+
 ## 2026-05-09 — שלב 17: שמירת הסברים לראיון ב-MODEL_FAQ.md
 
 נוצר קובץ חדש [`MODEL_FAQ.md`](MODEL_FAQ.md) שמתעד שני הסברים שניתנו בשיחה ולא נכנסו לדוחות הפורמליים:
@@ -91,6 +137,17 @@
 
 ### מסקנה כללית
 שיפור הביצועים ב-V3 (MAE 0.270 → 0.263) הוא **2.6%**, שולי. זה מאשר את התובנה מ-V2: **תקרת הביצועים היא drift של אירועים בלתי-צפויים, לא בחירת מודל**. למרות זאת, HistGradientBoosting הוא הבחירה הנכונה ל-production: מהיר, יציב, ומציג את ה-MAE הטוב ביותר.
+
+---
+
+## 2026-05-09 — שלב 16: שמירת חזון ואסטרטגיה בקבצים ייעודיים
+
+נוצרו שני מסמכים חדשים שמשמרים תכנים אסטרטגיים שעלו בשיחות (במקום שילכו לאיבוד):
+
+- **`MENTOR_PREP.md`** — הכנה למפגשי מנטור 3-6: מה יקרה בכל מפגש, איך להתכונן, ושאלות חכמות לשאול את המנטור.
+- **`PRODUCT_VISION.md`** — חזון מוצר אמיתי: ארכיטקטורת אפליקציה (Streamlit מול FastAPI+React), אסטרטגיית GitHub (private + public repos), נתוני דיגיטל ופרסום, איך זה הופך מ-פרוייקט לימודי למוצר B2B.
+
+עודכן גם `CLAUDE.md` עם 2 הקבצים החדשים תחת "תיעוד".
 
 ---
 
