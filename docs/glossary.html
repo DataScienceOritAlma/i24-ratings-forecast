@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>מילון מושגים | i24 Ratings Forecast</title>
+  <meta name="description" content="50+ מושגי דאטה סיינס ולמידת מכונה, מוסברים פשוט. לחצי על כל כרטיסייה לראות הסבר.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;700;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="glossary.css">
+</head>
+<body>
+
+  <!-- Header -->
+  <header class="g-header">
+    <div class="g-container">
+      <a href="index.html" class="g-back">→ חזרה לדף הראשי</a>
+      <h1 class="g-title">📚 מילון מושגים</h1>
+      <p class="g-subtitle">
+        50+ מושגי דאטה סיינס ולמידת מכונה.<br>
+        לחצי על <strong>+</strong> בכל כרטיסייה לראות הסבר בשלוש רמות.
+      </p>
+    </div>
+  </header>
+
+  <!-- Search + Filter -->
+  <section class="g-controls">
+    <div class="g-container">
+      <div class="g-search-wrap">
+        <input
+          type="search"
+          id="search"
+          class="g-search"
+          placeholder="🔍 חיפוש מושג... (למשל: HistGB, רייטינג, overfitting)"
+          autocomplete="off"
+        >
+        <div class="g-stats" id="stats">טוען...</div>
+      </div>
+
+      <div class="g-filters" id="filters">
+        <button class="g-chip active" data-cat="all">הכל</button>
+        <!-- chips injected by JS -->
+      </div>
+    </div>
+  </section>
+
+  <!-- Cards Grid -->
+  <main class="g-main">
+    <div class="g-container">
+      <div id="grid" class="g-grid">
+        <!-- Cards injected by JS -->
+      </div>
+
+      <div id="empty" class="g-empty" hidden>
+        <div class="g-empty-icon">🔍</div>
+        <p>לא נמצאו מושגים. נסי חיפוש אחר.</p>
+      </div>
+    </div>
+  </main>
+
+  <!-- Floating Buttons -->
+  <button id="expandAll" class="g-fab g-fab-expand" title="פתח הכל">
+    <span class="g-fab-icon">⊕</span>
+  </button>
+  <button id="collapseAll" class="g-fab g-fab-collapse" title="סגור הכל">
+    <span class="g-fab-icon">⊖</span>
+  </button>
+  <button id="topBtn" class="g-fab g-fab-top" title="חזרה למעלה" hidden>
+    <span class="g-fab-icon">↑</span>
+  </button>
+
+  <footer class="g-footer">
+    <p>מבוסס על <code>GLOSSARY.md</code> · נבנה ע"י אורית דקי · 2026</p>
+  </footer>
+
+  <script src="glossary-data.js"></script>
+  <script src="glossary.js"></script>
+</body>
+</html>
