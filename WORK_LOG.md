@@ -1,7 +1,97 @@
 # Work Log — EDA & Event Tagging for i24 Ratings Project
 
 > תיעוד שלב-אחר-שלב של כל מה שנעשה בפרויקט.
-> עודכן לאחרונה: 2026-05-09
+> עודכן לאחרונה: 2026-05-14
+
+---
+
+## 2026-05-14 — שלב 21: דף נחיתה Vanilla JS + GitHub Pages
+
+נבנה דף נחיתה סטטי בתיקייה `docs/`, ללא frameworks.
+
+### קבצים שנוצרו
+- `docs/index.html` — מבנה semantic מלא, RTL, 7 sections (Nav, Hero, Stats, About, Models, Algorithms, Tech, Links, Footer)
+- `docs/style.css` — Heebo font, CSS variables, Grid + Flex, backdrop-filter, gradients, hover effects, fully responsive
+- `docs/script.js` — Vanilla JS עם:
+  - `IntersectionObserver` להפעלת אנימציות בגלילה
+  - Count-up animation על stat numbers (10039, 179, 19, 34)
+  - Leaderboard bars שמתמלאים עם CSS transitions
+  - Smooth scroll
+- `docs/viz/` — 8 PNG-ים מועתקים מ-`viz/`
+- `docs/README.md` — הוראות פריסה ל-GitHub Pages
+
+### פיצ'רים מרכזיים
+- **Hero section** עם gradient כחול-כתום + CTA כפול (אפליקציה / GitHub)
+- **Stats grid** עם count-up animation
+- **Leaderboard מוצר** של top-8 מודלים עם זהב/כסף/ארד
+- **8 ויזואליזציות** משוקעות בעמוד (4 בדפדפן + 4 בהמשך)
+- **Tech stack** ב-dark section
+- **Links grid** ל-6 משאבים (Streamlit, GitHub, GLOSSARY, FAQ, DEEP_DIVE, VISUAL)
+- **Responsive** — נראה טוב גם בנייד
+
+### פריסה ל-GitHub Pages
+לאחר push:
+- Settings → Pages → Source: `main` branch / `docs` folder
+- URL צפוי: https://datascienceoritalma.github.io/i24-ratings-forecast/
+
+---
+
+## 2026-05-14 — שלב 20: ניתוח עומק (Data Deep Dive + Algorithm Visualizations)
+
+נוצרו 2 מסמכי ניתוח חדשים + סקריפט ויזואליזציה.
+
+### `DATA_DEEP_DIVE.md` + `sample_30_rows.xlsx`
+- דגימה רנדומלית של 30 שורות מ-test set (seed=42)
+- השוואת 6 מודלים פר שורה: HistGB, LightGBM, ExtraTrees, RF_tuned, SlotMean, Naive
+- חישוב MAE + Bias פר מודל
+- זיהוי **5 שורות קשות** (כל המודלים טעו) ו-**5 שורות קלות** (כולם צדקו)
+- ניתוח לפי סטטוס תוכנית
+- ניתוח spread בין מודלים — שורות עם חוסר הסכמה
+
+**תובנות עיקריות:**
+- **השורות הקשות:** רייטינג ממוצע 0.69, רובן "שידור חי"
+- **השורות הקלות:** רייטינג ממוצע 0.26, רובן "שידור חוזר"
+- **אישור heteroscedasticity** — רייטינגים גבוהים קשים יותר לחיזוי
+
+### `algo_visualizations.py` + `viz/01-08*.png` + `ALGORITHMS_VISUAL.md`
+8 תרשימים שמסבירים אלגוריתמי ML עם דאטה אמיתי של i24:
+1. Bias-Variance Tradeoff (3 panels)
+2. Train/Test כרונולוגי על הדאטה של i24
+3. Predicted vs Actual של HistGB (500 שורות מסט הבחינה)
+4. Leaderboard של 19 מודלים
+5. Random Forest — 5 עצים בודדים + ממוצע
+6. Gradient Boosting — 4 שלבי אימון (1, 5, 20, 100 עצים)
+7. Histogram Binning — לפני/אחרי
+8. Error distribution לפי סטטוס (boxplot על דאטה אמיתי)
+
+---
+
+## 2026-05-14 — שלב 20: מילון מושגים מקיף (GLOSSARY.md)
+
+נוצר מסמך `GLOSSARY.md` עם כל מושגי הדאטה סיינס והאלגוריתמים בהם השתמשנו בפרוייקט, מוסברים בשלוש רמות:
+- 🧒 **הסבר לילד** — אנלוגיה פשוטה לרמת כיתה א'
+- 📘 **הסבר טכני** — נוסחאות, פרמטרים, תיאוריה
+- 🔍 **איפה השתמשנו** — קישור ספציפי לפרוייקט (קובץ + ערכים מספריים)
+
+### 13 קטגוריות, ~50 מושגים
+1. מושגי טלוויזיה (רייטינג, נתח, HUT, פאנל נושם, רצועה, פריים)
+2. מטריקות (MAE, RMSE, R²)
+3. פיצול נתונים (Train/Test, כרונולוגי, TimeSeriesSplit)
+4. הנדסת פיצ'רים (Lag, One-Hot, Standardization, Imputation)
+5. בעיות בדאטה (Leakage, Drift, Cold-start, Over/Underfitting, Bias-Variance)
+6. מודלים ליניאריים (Linear, Ridge, Lasso, ElasticNet, BayesianRidge, Huber)
+7. רגולריזציה (L1, L2)
+8. עצים (Decision Tree, Bagging, RandomForest, ExtraTrees)
+9. Boosting (GB, HistGB, XGB, LGB, CatBoost)
+10. מודלים נוספים (KNN, SVR, MLP)
+11. Ensembles (Stacking)
+12. כיול חיזוי (Confidence Interval, Trend Correction, Bias correction)
+13. תשתית (Pipeline, joblib, Streamlit Caching, Multi-page, RTL, Secrets, Cloud hosting)
+
+### למה זה חשוב
+- **לראיונות:** הסברים מוכנים לכל מושג שעלול לעלות
+- **תיעוד פנימי:** למתכנן חדש שמצטרף, יש "מילון" כניסה
+- **קישור לקוד:** כל מושג מצביע על קובץ ושורה בפועל
 
 ---
 

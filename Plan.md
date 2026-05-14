@@ -144,6 +144,32 @@
 - [x] Hero card מלוטש
 - [x] סנן דף "כרטיס תוכנית" ל-58 תוכניות עם חיזויים בלבד
 
+### ✅ 10. מילון מושגים (הושלם 2026-05-14)
+- [x] `GLOSSARY.md` — כל מושגי DS/ML + אלגוריתמים בשלוש רמות (ילד/טכני/פרוייקט)
+- [x] 13 קטגוריות, ~50 מושגים
+- [x] קישור לכל מושג איפה משמש בפועל בפרוייקט
+
+### ✅ 11. העמקת דאטה (הושלם 2026-05-14)
+- [x] Sample 30 שורות רנדומליות מ-test set (seed=42)
+- [x] השוואת חיזויים מ-6 מודלים בכל שורה (HistGB, LGB, XT, RF, SlotMean, Naive)
+- [x] זיהוי 5 קשות / 5 קלות / 3 עם spread גבוה
+- [x] דוח: `DATA_DEEP_DIVE.md` + `sample_30_rows.xlsx`
+- [x] תובנה: רייטינגים גבוהים = שגיאות גבוהות (heteroscedasticity מאושר)
+
+### ✅ 12. ויזואליזציה של אלגוריתמים (הושלם 2026-05-14)
+- [x] 8 תרשימים: Bias-Variance, Train/Test, Pred-vs-Actual, Leaderboard, RF, Boosting, Binning, Errors-by-status
+- [x] `algo_visualizations.py` — סקריפט מלא
+- [x] `viz/01-08*.png` — שמורים
+- [x] `ALGORITHMS_VISUAL.md` — דוח משולב עם הסברים
+
+### ✅ 13. פרונט-אנד Vanilla JS + GitHub Pages (הושלם 2026-05-14)
+- [x] `docs/index.html` — semantic, RTL, 7 sections
+- [x] `docs/style.css` — Heebo, gradients, responsive
+- [x] `docs/script.js` — IntersectionObserver, count-up, leaderboard
+- [x] `docs/viz/` — 8 PNG-ים
+- [x] `docs/README.md` — הוראות פריסה
+- [ ] **TODO ידני:** הפעלת GitHub Pages ב-Settings → Pages → Branch: main, Folder: /docs
+
 ---
 
 ## שלבים שהושלמו ✅

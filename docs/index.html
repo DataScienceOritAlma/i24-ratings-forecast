@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>i24 Ratings Forecast | חיזוי רייטינג בלמידת מכונה</title>
+  <meta name="description" content="פרוייקט חיזוי רייטינג של תוכניות i24 NEWS באמצעות 19 מודלי מכונה לומדת. MAE=0.263, R²=0.603.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;700;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <!-- Navigation -->
+  <nav class="nav">
+    <div class="nav-container">
+      <a href="#" class="nav-logo">📺 i24 Forecast</a>
+      <ul class="nav-links">
+        <li><a href="#about">אודות</a></li>
+        <li><a href="#stats">מספרים</a></li>
+        <li><a href="#models">מודלים</a></li>
+        <li><a href="#tech">טכנולוגיה</a></li>
+        <li><a href="#links">קישורים</a></li>
+      </ul>
+    </div>
+  </nav>
+
+  <!-- Hero -->
+  <header class="hero">
+    <div class="hero-bg"></div>
+    <div class="container">
+      <h1 class="hero-title">
+        חיזוי רייטינג של תוכניות i24<br>
+        <span class="hero-accent">באמצעות 19 מודלי מכונה לומדת</span>
+      </h1>
+      <p class="hero-subtitle">
+        פרוייקט End-to-End — מ-EDA ועד מודל פרודקטיבי באוויר.<br>
+        תכנון אסטרטגי של ערוץ — תוכניות עבודה, תחזית הכנסות, החלטות לוז.
+      </p>
+      <div class="hero-cta">
+        <a href="https://i24-ratings-orit.streamlit.app" target="_blank" rel="noopener" class="btn btn-primary">
+          🚀 לאפליקציה החיה
+        </a>
+        <a href="https://github.com/DataScienceOritAlma/i24-ratings-forecast" target="_blank" rel="noopener" class="btn btn-secondary">
+          📂 לקוד ב-GitHub
+        </a>
+      </div>
+      <div class="hero-meta">
+        <span>סיסמה לאפליקציה: <code>i24-2026-orit</code></span>
+      </div>
+    </div>
+  </header>
+
+  <!-- Stats -->
+  <section id="stats" class="section section-stats">
+    <div class="container">
+      <h2 class="section-title">📊 הפרוייקט במספרים</h2>
+      <div class="stats-grid">
+        <div class="stat-card">
+          <div class="stat-value" data-target="10039">0</div>
+          <div class="stat-label">שורות דאטה</div>
+          <div class="stat-sub">2025-05-25 → 2026-04-18</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value" data-target="179">0</div>
+          <div class="stat-label">תוכניות שונות</div>
+          <div class="stat-sub">חדשות, אירוח, מגזינים</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value" data-target="19">0</div>
+          <div class="stat-label">מודלים שאומנו</div>
+          <div class="stat-sub">מ-Naive עד Stacking</div>
+        </div>
+        <div class="stat-card stat-highlight">
+          <div class="stat-value">0.263</div>
+          <div class="stat-label">MAE (זוכה)</div>
+          <div class="stat-sub">HistGradientBoosting</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value">0.603</div>
+          <div class="stat-label">R² (זוכה)</div>
+          <div class="stat-sub">60% מההסבר</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value" data-target="34">0</div>
+          <div class="stat-label">פיצ'רים</div>
+          <div class="stat-sub">15 גולמיים + 19 מהונדסים</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- About -->
+  <section id="about" class="section">
+    <div class="container">
+      <h2 class="section-title">🎯 על הפרוייקט</h2>
+      <div class="about-grid">
+        <div class="about-card">
+          <h3>הבעיה</h3>
+          <p>
+            i24 NEWS משדר 24/7 עם עשרות תוכניות בלוז משתנה. ההחלטות האסטרטגיות שלהם —
+            איזו תוכנית לחזק, מתי להוסיף, מה לבטל — תלויות בחיזוי הרייטינג של חודשים קדימה.
+          </p>
+        </div>
+        <div class="about-card">
+          <h3>הפתרון</h3>
+          <p>
+            מודל HistGradientBoosting שמאומן על שנת דאטה מלאה ומספק חיזוי לכל תוכנית
+            בכל שעה, יום או חודש — עם רווח-בטחון, ויזואליזציה אינטראקטיבית, והשוואת תרחישים.
+          </p>
+        </div>
+        <div class="about-card">
+          <h3>ההשפעה</h3>
+          <p>
+            מנהל המחקר של i24: "כל הארגון תלוי בנתונים האלה — תחזית הכנסות, הוצאות,
+            תוכניות עבודה ושינויי לוז". האפליקציה הופכת את ההחלטות לנתונים-מבוססים.
+          </p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Models Comparison -->
+  <section id="models" class="section section-models">
+    <div class="container">
+      <h2 class="section-title">🏆 השוואת 19 מודלים — Top 8</h2>
+      <p class="section-sub">MAE על סט הבחינה (חיתוך כרונולוגי 80/20). נמוך = טוב.</p>
+      <div class="leaderboard" id="leaderboard"></div>
+
+      <div class="viz-grid">
+        <figure class="viz-card">
+          <img src="viz/04_model_leaderboard.png" alt="Model leaderboard">
+          <figcaption>השוואת 19 מודלים — כל אחד אומן ונבחן באותם תנאים</figcaption>
+        </figure>
+        <figure class="viz-card">
+          <img src="viz/03_pred_vs_actual.png" alt="Predicted vs Actual">
+          <figcaption>חיזוי vs אמיתי — HistGradientBoosting, 500 שורות test</figcaption>
+        </figure>
+        <figure class="viz-card">
+          <img src="viz/02_chronological_split.png" alt="Train/Test Split">
+          <figcaption>פיצול כרונולוגי — אימון על העבר, בחינה על העתיד</figcaption>
+        </figure>
+        <figure class="viz-card">
+          <img src="viz/08_error_by_status.png" alt="Errors by status">
+          <figcaption>שגיאות פר סטטוס — שידור חי קשה יותר לחיזוי</figcaption>
+        </figure>
+      </div>
+    </div>
+  </section>
+
+  <!-- Algorithms -->
+  <section id="algorithms" class="section">
+    <div class="container">
+      <h2 class="section-title">🧠 איך זה עובד</h2>
+      <div class="algo-grid">
+        <figure class="algo-card">
+          <img src="viz/06_boosting.png" alt="Gradient Boosting">
+          <figcaption>
+            <strong>Gradient Boosting</strong> — כל עץ מתקן את הטעויות של הקודמים.
+            ככל שמוסיפים עצים, המודל מדויק יותר.
+          </figcaption>
+        </figure>
+        <figure class="algo-card">
+          <img src="viz/05_random_forest.png" alt="Random Forest">
+          <figcaption>
+            <strong>Random Forest</strong> — חוכמת ההמון של 100+ עצים.
+            כל עץ "פרוע" לבד, אבל יחד הם יציבים.
+          </figcaption>
+        </figure>
+        <figure class="algo-card">
+          <img src="viz/07_histogram_binning.png" alt="Histogram Binning">
+          <figcaption>
+            <strong>Histogram Binning</strong> — הקסם של HistGB.
+            מחלק את הדאטה ל-256 סלים → מהיר פי 10.
+          </figcaption>
+        </figure>
+        <figure class="algo-card">
+          <img src="viz/01_bias_variance.png" alt="Bias-Variance">
+          <figcaption>
+            <strong>Bias-Variance Tradeoff</strong> — לא פשוט מדי, לא מורכב מדי.
+            המודל הזוכה מאוזן.
+          </figcaption>
+        </figure>
+      </div>
+    </div>
+  </section>
+
+  <!-- Tech Stack -->
+  <section id="tech" class="section section-tech">
+    <div class="container">
+      <h2 class="section-title">⚙️ Tech Stack</h2>
+      <div class="tech-grid">
+        <div class="tech-cat">
+          <h4>Data &amp; ML</h4>
+          <ul>
+            <li>Python 3.11</li>
+            <li>pandas, NumPy</li>
+            <li>scikit-learn 1.6</li>
+            <li>XGBoost, LightGBM, CatBoost</li>
+            <li>statsmodels</li>
+          </ul>
+        </div>
+        <div class="tech-cat">
+          <h4>App &amp; UI</h4>
+          <ul>
+            <li>Streamlit</li>
+            <li>Plotly (אינטראקטיבי)</li>
+            <li>Heebo Font</li>
+            <li>CSS injection (RTL)</li>
+          </ul>
+        </div>
+        <div class="tech-cat">
+          <h4>Deployment</h4>
+          <ul>
+            <li>Streamlit Cloud (App)</li>
+            <li>GitHub Pages (Landing)</li>
+            <li>joblib (Model serialization)</li>
+            <li>Git + GitHub CI</li>
+          </ul>
+        </div>
+        <div class="tech-cat">
+          <h4>Process</h4>
+          <ul>
+            <li>EDA → 5 שכבות מודלים</li>
+            <li>Time-aware CV</li>
+            <li>פיצול כרונולוגי 80/20</li>
+            <li>תיעוד ברציפות (CLAUDE.md, WORK_LOG.md)</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Links -->
+  <section id="links" class="section section-links">
+    <div class="container">
+      <h2 class="section-title">🔗 קישורים מהירים</h2>
+      <div class="links-grid">
+        <a href="https://i24-ratings-orit.streamlit.app" target="_blank" rel="noopener" class="link-card">
+          <div class="link-icon">🚀</div>
+          <div class="link-title">אפליקציה חיה</div>
+          <div class="link-sub">Streamlit Cloud · סיסמה: i24-2026-orit</div>
+        </a>
+        <a href="https://github.com/DataScienceOritAlma/i24-ratings-forecast" target="_blank" rel="noopener" class="link-card">
+          <div class="link-icon">📂</div>
+          <div class="link-title">קוד מקור</div>
+          <div class="link-sub">GitHub Public Repo</div>
+        </a>
+        <a href="https://github.com/DataScienceOritAlma/i24-ratings-forecast/blob/main/GLOSSARY.md" target="_blank" rel="noopener" class="link-card">
+          <div class="link-icon">📚</div>
+          <div class="link-title">מילון מושגים</div>
+          <div class="link-sub">50+ מושגי DS/ML, מוסברים פשוט</div>
+        </a>
+        <a href="https://github.com/DataScienceOritAlma/i24-ratings-forecast/blob/main/MODEL_FAQ.md" target="_blank" rel="noopener" class="link-card">
+          <div class="link-icon">❓</div>
+          <div class="link-title">MODEL FAQ</div>
+          <div class="link-sub">למה בחרנו HistGradientBoosting</div>
+        </a>
+        <a href="https://github.com/DataScienceOritAlma/i24-ratings-forecast/blob/main/DATA_DEEP_DIVE.md" target="_blank" rel="noopener" class="link-card">
+          <div class="link-icon">🔬</div>
+          <div class="link-title">העמקה בדאטה</div>
+          <div class="link-sub">30 שורות מנותחות ידנית</div>
+        </a>
+        <a href="https://github.com/DataScienceOritAlma/i24-ratings-forecast/blob/main/ALGORITHMS_VISUAL.md" target="_blank" rel="noopener" class="link-card">
+          <div class="link-icon">🎨</div>
+          <div class="link-title">ויזואליזציה</div>
+          <div class="link-sub">8 תרשימים שמסבירים את האלגוריתמים</div>
+        </a>
+      </div>
+    </div>
+  </section>
+
+  <!-- Footer -->
+  <footer class="footer">
+    <div class="container">
+      <p>
+        נבנה ע"י <strong>אורית דקי</strong> · 2026 · Data Science Portfolio
+      </p>
+      <p class="footer-sub">
+        Vanilla JS · HTML5 · CSS3 · אפס frameworks · GitHub Pages
+      </p>
+    </div>
+  </footer>
+
+  <script src="script.js"></script>
+</body>
+</html>

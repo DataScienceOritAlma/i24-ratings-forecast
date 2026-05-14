@@ -44,6 +44,17 @@
 - `DEPLOY.md` — הוראות פריסה ל-GitHub + Streamlit Cloud
 - `MENTOR_PREP.md` — הכנה למפגשי מנטור 3-6 + שאלות לשאול
 - `PRODUCT_VISION.md` — חזון מוצר B2B + GitHub strategy + דאטה נוסף
+- `GLOSSARY.md` — **מילון מושגים מקיף** — DS/ML + אלגוריתמים, מוסבר בשלוש רמות (ילד/טכני/פרוייקט)
+- `DATA_DEEP_DIVE.md` + `sample_30_rows.xlsx` — ניתוח ידני של 30 שורות מ-test, השוואת 6 מודלים, זיהוי דפוסים
+- `ALGORITHMS_VISUAL.md` + `viz/01-08*.png` — 8 תרשימים שמסבירים אלגוריתמים על הדאטה האמיתי
+- `data_deep_dive.py`, `algo_visualizations.py` — סקריפטי הניתוח/ויזואליזציה
+
+### דף נחיתה (Vanilla JS, GitHub Pages, 2026-05-14)
+- `docs/index.html` — HTML semantic, RTL, 7 sections
+- `docs/style.css` — Heebo + Grid + CSS variables, fully responsive
+- `docs/script.js` — IntersectionObserver, count-up, leaderboard bars
+- `docs/viz/` — 8 PNG-ים
+- `docs/README.md` — הוראות פריסה ל-GitHub Pages
 
 ### אפליקציה (Streamlit, נוסף 2026-05-09, פרוס באוויר 2026-05-10)
 - `app.py` — דף הבית
