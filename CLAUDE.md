@@ -55,8 +55,7 @@
 - `docs/index.html` — HTML semantic, RTL, 7 sections
 - `docs/style.css` — Heebo + Grid + CSS variables, fully responsive
 - `docs/script.js` — IntersectionObserver, count-up, leaderboard bars
-- `docs/glossary.{html,css,js}` + `docs/glossary-data.js` — מילון אינטראקטיבי (50+ כרטיסים, 3 רמות). `glossary-data.js` = מקור-אמת יחיד (CATEGORIES + TERMS)
-- `docs/infographic.{html,css,js}` — אינפוגרפיקה: כל 50 המושגים במבט אחד, רמת "לילד", 13 קטגוריות. קורא מ-`glossary-data.js`, כולל `@media print`
+- `docs/infographic.{html,css}` — **דאטה סיינס בציורים + מילון משולב** (דף המושגים היחיד): 23 איורי SVG; לחיצה על כרטיס פותחת modal עם הציור בגדול + הסבר 3 רמות (פשוט/טכני/בפרוייקט). סטטי, כולל `@media print`. החליף את glossary.* + journey.* שנמחקו (2026-05-18, צמצום דפים לפי בקשת המשתמשת)
 - `docs/viz/` — 8 PNG-ים
 - `docs/README.md` — הוראות פריסה ל-GitHub Pages
 

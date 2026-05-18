@@ -18,13 +18,8 @@ docs/
 ├── index.html       # מבנה הדף + תוכן
 ├── style.css        # עיצוב מאוחד עם Heebo + RTL
 ├── script.js        # אנימציות leaderboard + count-up + smooth scroll
-├── glossary.html    # מילון אינטראקטיבי — 50+ כרטיסים מתקפלים, 3 רמות
-├── glossary.css     # עיצוב המילון
-├── glossary.js      # חיפוש/סינון/הרחבה
-├── glossary-data.js # מקור-אמת יחיד: CATEGORIES + TERMS (משמש גם את האינפוגרפיקה)
-├── infographic.html # אינפוגרפיקה — כל 50 המושגים במבט אחד, רמת "לילד"
-├── infographic.css  # עיצוב האינפוגרפיקה + סגנון הדפסה/PDF
-├── infographic.js   # רינדור מ-glossary-data.js לפי 13 קטגוריות
+├── infographic.html # דאטה סיינס בציורים + מילון משולב — 23 SVG, לחיצה→modal 3 רמות
+├── infographic.css  # עיצוב הציורים + modal + helpers ל-SVG + הדפסה/PDF
 ├── viz/             # 8 תרשימי PNG מ-algo_visualizations.py
 │   ├── 01_bias_variance.png
 │   ├── 02_chronological_split.png
