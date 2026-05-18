@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>אינפוגרפיקה — מושגי דאטה סיינס | i24 Ratings Forecast</title>
+  <meta name="description" content="כל 50 מושגי הדאטה סיינס של הפרוייקט במבט אחד — כל מושג מוסבר במשפט פשוט, כמו לילד.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;700;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="infographic.css">
+</head>
+<body>
+
+  <!-- Header -->
+  <header class="ig-header">
+    <div class="ig-container">
+      <a href="index.html" class="ig-back">→ חזרה לדף הראשי</a>
+      <h1 class="ig-title">🧠 כל מושגי הדאטה סיינס — במבט אחד</h1>
+      <p class="ig-subtitle">
+        50 מושגים · 13 קטגוריות · כל אחד מוסבר ב<strong>משפט אחד פשוט, כמו לילד</strong>.<br>
+        רוצה את ההסבר הטכני המלא? <a href="glossary.html" class="ig-link">למילון האינטראקטיבי ←</a>
+      </p>
+      <div class="ig-actions">
+        <button id="printBtn" class="ig-btn" type="button">🖨️ הדפסה / שמירה כ-PDF</button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Sticky category nav -->
+  <nav class="ig-nav" id="catNav" aria-label="ניווט קטגוריות">
+    <div class="ig-container ig-nav-inner">
+      <!-- chips injected by JS -->
+    </div>
+  </nav>
+
+  <!-- Infographic body -->
+  <main class="ig-main">
+    <div class="ig-container">
+      <div id="sections">
+        <!-- sections injected by JS -->
+      </div>
+    </div>
+  </main>
+
+  <footer class="ig-footer">
+    <p>מבוסס על <code>GLOSSARY.md</code> · נבנה ע"י אורית דקי · 2026</p>
+  </footer>
+
+  <button id="topBtn" class="ig-fab" title="חזרה למעלה" hidden>↑</button>
+
+  <!-- Single source of truth — same data as the interactive glossary -->
+  <script src="glossary-data.js"></script>
+  <script src="infographic.js"></script>
+</body>
+</html>

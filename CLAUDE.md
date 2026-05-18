@@ -48,11 +48,15 @@
 - `DATA_DEEP_DIVE.md` + `sample_30_rows.xlsx` — ניתוח ידני של 30 שורות מ-test, השוואת 6 מודלים, זיהוי דפוסים
 - `ALGORITHMS_VISUAL.md` + `viz/01-08*.png` — 8 תרשימים שמסבירים אלגוריתמים על הדאטה האמיתי
 - `data_deep_dive.py`, `algo_visualizations.py` — סקריפטי הניתוח/ויזואליזציה
+- `eda_to_docx.py` — ממיר Markdown→Word גנרי (RTL, מיתוג i24). `py -3 eda_to_docx.py [SRC.md] [OUT.docx]`; ברירת מחדל: `EDA_REPORT.md`→`EDA_REPORT.docx`
+- `EDA_REPORT.docx`, `WORK_LOG.docx` — פלטי Word
 
 ### דף נחיתה (Vanilla JS, GitHub Pages, 2026-05-14)
 - `docs/index.html` — HTML semantic, RTL, 7 sections
 - `docs/style.css` — Heebo + Grid + CSS variables, fully responsive
 - `docs/script.js` — IntersectionObserver, count-up, leaderboard bars
+- `docs/glossary.{html,css,js}` + `docs/glossary-data.js` — מילון אינטראקטיבי (50+ כרטיסים, 3 רמות). `glossary-data.js` = מקור-אמת יחיד (CATEGORIES + TERMS)
+- `docs/infographic.{html,css,js}` — אינפוגרפיקה: כל 50 המושגים במבט אחד, רמת "לילד", 13 קטגוריות. קורא מ-`glossary-data.js`, כולל `@media print`
 - `docs/viz/` — 8 PNG-ים
 - `docs/README.md` — הוראות פריסה ל-GitHub Pages
 
