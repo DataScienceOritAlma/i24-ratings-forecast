@@ -13,6 +13,15 @@ from pathlib import Path
 import io, sys
 sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
 
+# matplotlib אינו מסדר RTL — עוטפים טקסט עברי ב-bidi כדי שלא יוצג הפוך
+try:
+    from bidi.algorithm import get_display
+    def rtl(s):
+        return get_display(str(s))
+except ImportError:
+    def rtl(s):
+        return str(s)
+
 # Hebrew font support
 mpl.rcParams['font.family'] = ['Arial', 'DejaVu Sans']
 mpl.rcParams['axes.unicode_minus'] = False
@@ -258,7 +267,7 @@ statuses = df_preds[status_col].value_counts().head(4).index.tolist()
 fig, ax = plt.subplots(figsize=(11, 6))
 positions = range(len(statuses))
 data_per_status = [df_preds[df_preds[status_col] == s]['err_HistGB'].values for s in statuses]
-labels_with_n = [f"{s}\nn={len(d)}" for s, d in zip(statuses, data_per_status)]
+labels_with_n = [f"{rtl(s)}\nn={len(d)}" for s, d in zip(statuses, data_per_status)]
 
 bp = ax.boxplot(data_per_status, positions=positions, widths=0.6, patch_artist=True,
                 medianprops=dict(color='black', linewidth=2),
