@@ -22,10 +22,37 @@ except ImportError:
     def rtl(s):
         return str(s)
 
-# Hebrew font support
-mpl.rcParams['font.family'] = ['Arial', 'DejaVu Sans']
-mpl.rcParams['axes.unicode_minus'] = False
-mpl.rcParams['figure.dpi'] = 100
+# ערכת-עיצוב אחידה ומודרנית — תואמת מיתוג i24, פחות "אקדמי"
+mpl.rcParams.update({
+    'font.family': ['Arial', 'DejaVu Sans'],
+    'axes.unicode_minus': False,
+    'figure.dpi': 100,
+    'figure.facecolor': 'white',
+    'savefig.facecolor': 'white',
+    'savefig.bbox': 'tight',
+    'axes.facecolor': '#FBFCFE',
+    'axes.edgecolor': '#CBD5E1',
+    'axes.linewidth': 1.0,
+    'axes.spines.top': False,
+    'axes.spines.right': False,
+    'axes.grid': True,
+    'axes.grid.axis': 'y',
+    'grid.color': '#E2E8F0',
+    'grid.linewidth': 0.8,
+    'grid.linestyle': '-',
+    'axes.titleweight': 'bold',
+    'axes.titlesize': 13,
+    'axes.titlecolor': '#0A2540',
+    'axes.titlepad': 14,
+    'axes.labelcolor': '#334155',
+    'axes.labelsize': 11,
+    'xtick.color': '#5A6B7B',
+    'ytick.color': '#5A6B7B',
+    'xtick.labelsize': 10,
+    'ytick.labelsize': 10,
+    'legend.frameon': False,
+    'legend.fontsize': 10,
+})
 
 ROOT = Path(__file__).parent
 VIZ = ROOT / "viz"
