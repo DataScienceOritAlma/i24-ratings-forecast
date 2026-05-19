@@ -135,27 +135,85 @@ plt.close()
 
 # ===== 2. Train/Test Chronological Split =====
 print("2. Chronological Split...")
-df_sorted = df_data.copy()
-df_sorted['date_parsed'] = pd.to_datetime(df_sorted.iloc[:, 3], errors='coerce')
-df_sorted = df_sorted.dropna(subset=['date_parsed']).sort_values('date_parsed').reset_index(drop=True)
+# עמודה 2 = תאריך, עמודה 6 = רייטינג גולמי (היעד)
+dfc = df_data.copy()
+dfc['d'] = pd.to_datetime(dfc.iloc[:, 2], errors='coerce')
+dfc['r'] = pd.to_numeric(dfc.iloc[:, 6], errors='coerce')
+dfc = dfc.dropna(subset=['d', 'r']).sort_values('d')
 cutoff = pd.Timestamp('2026-02-08')
 
-fig, ax = plt.subplots(figsize=(13, 5))
-daily = df_sorted.groupby(df_sorted['date_parsed'].dt.date)[actual_col if actual_col in df_sorted.columns else df_sorted.columns[8]].mean()
+daily = dfc.groupby(dfc['d'].dt.date)['r'].mean()
 daily.index = pd.to_datetime(daily.index)
-train_mask = daily.index < cutoff
+d0, d1 = daily.index.min(), daily.index.max()
 
-ax.plot(daily.index[train_mask], daily[train_mask], color=BLUE, linewidth=1.5, label='Train (80%)')
-ax.plot(daily.index[~train_mask], daily[~train_mask], color=ACCENT, linewidth=1.5, label='Test (20%)')
-ax.axvline(cutoff, color='black', linestyle='--', alpha=0.7)
-ax.text(cutoff, ax.get_ylim()[1] * 0.95, f'  Cutoff: {cutoff.strftime("%Y-%m-%d")}', fontsize=10, color='black')
-ax.fill_between(daily.index[train_mask], 0, daily[train_mask], alpha=0.15, color=BLUE)
-ax.fill_between(daily.index[~train_mask], 0, daily[~train_mask], alpha=0.15, color=ACCENT)
-ax.set_title("Chronological Train/Test Split — i24 Daily Average Rating", fontsize=14, fontweight='bold')
-ax.set_xlabel("Date"); ax.set_ylabel("Daily Avg Rating")
-ax.legend(loc='upper left', fontsize=11); ax.grid(alpha=0.3)
+is_train = dfc['d'] < cutoff
+n_tr, n_te = int(is_train.sum()), int((~is_train).sum())
+m_tr, m_te = dfc.loc[is_train, 'r'].mean(), dfc.loc[~is_train, 'r'].mean()
+drift = (m_te / m_tr - 1) * 100
+
+fig, ax = plt.subplots(figsize=(13, 5.2))
+ymax = daily.max() * 1.30
+ax.set_xlim(d0, d1)
+ax.set_ylim(0, ymax)
+
+
+def ml(*lines):
+    return "\n".join(rtl(x) for x in lines)
+
+
+# אזורי זמן צבעוניים — הפיצול גלוי מיד
+ax.axvspan(d0, cutoff, color=BLUE, alpha=0.10, zorder=0)
+ax.axvspan(cutoff, d1, color=ACCENT, alpha=0.12, zorder=0)
+
+# קו הרייטינג היומי
+ax.plot(daily.index, daily.values, color='#334155', linewidth=1.4,
+        zorder=3, label=rtl('רייטינג יומי ממוצע'))
+
+# קווי ממוצע — מראים את ה-drift
+ax.hlines(m_tr, d0, cutoff, color=BLUE, linestyle='--', linewidth=2.2, zorder=4)
+ax.hlines(m_te, cutoff, d1, color=ACCENT, linestyle='--', linewidth=2.2, zorder=4)
+
+# קו החיתוך
+ax.axvline(cutoff, color='#0A2540', linestyle='-', linewidth=2.2, zorder=5)
+ax.text(cutoff, ymax * 1.015, f"  {cutoff.strftime('%d/%m/%Y')}  ",
+        ha='center', va='bottom', fontsize=10.5, fontweight='bold',
+        color='white', zorder=6,
+        bbox=dict(boxstyle='round,pad=0.4', fc='#0A2540', ec='none'))
+
+# תוויות אזור גדולות
+xt = d0 + (cutoff - d0) / 2
+xe = cutoff + (d1 - cutoff) / 2
+ax.text(xt, ymax * 0.92, ml('אימון · 80%', f'לומדים מהעבר · {n_tr:,} שורות'),
+        ha='center', va='top', fontsize=14, fontweight='bold',
+        color=BLUE, zorder=6)
+ax.text(xe, ymax * 0.92, ml('בחינה · 20%', f'מנבאים קדימה · {n_te:,} שורות'),
+        ha='center', va='top', fontsize=14, fontweight='bold',
+        color='#C2410C', zorder=6)
+
+# תוויות מספר קטנות על קווי הממוצע (בקצוות, ללא התנגשות)
+ax.text(d0 + (cutoff - d0) * 0.01, m_tr + ymax * 0.028, f'{m_tr:.2f}',
+        ha='left', va='bottom', fontsize=10.5, color=BLUE,
+        fontweight='bold', zorder=6)
+ax.text(d1 - (d1 - cutoff) * 0.06, m_te + ymax * 0.028, f'{m_te:.2f}',
+        ha='right', va='bottom', fontsize=10.5, color='#C2410C',
+        fontweight='bold', zorder=6)
+
+# קאלאוט ה-drift — התובנה המרכזית, במרחב פנוי מעל קו-החיתוך
+ax.text(cutoff, ymax * 0.64,
+        ml(f'+{drift:.0f}% drift',
+           f'ממוצע {m_tr:.2f} ← {m_te:.2f}',
+           'אירועי 2026 הקפיצו את הרייטינג'),
+        ha='center', va='center', fontsize=12, fontweight='bold',
+        color='#9A3412', zorder=7,
+        bbox=dict(boxstyle='round,pad=0.6', fc='#FFF1E8',
+                  ec='#C2410C', lw=1.6))
+
+ax.set_title("Chronological Train/Test Split\n"
+             + rtl("לומדים מהעבר ← מנבאים את העתיד (לא דגימה אקראית)"))
+ax.set_ylabel("Daily avg rating")
+ax.set_xlabel("")
 plt.tight_layout()
-plt.savefig(VIZ / "02_chronological_split.png", bbox_inches='tight', dpi=120)
+plt.savefig(VIZ / "02_chronological_split.png", bbox_inches='tight', dpi=140)
 plt.close()
 
 # ===== 3. Predicted vs Actual — HistGB Winner =====
