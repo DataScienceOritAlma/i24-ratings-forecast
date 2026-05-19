@@ -125,11 +125,49 @@
     });
   }
 
+  // ===== Scroll progress bar =====
+  function setupScrollProgress() {
+    const bar = document.getElementById('scrollProgress');
+    if (!bar) return;
+    function update() {
+      const h = document.documentElement;
+      const max = h.scrollHeight - h.clientHeight;
+      bar.style.width = (max > 0 ? (h.scrollTop / max) * 100 : 0) + '%';
+    }
+    window.addEventListener('scroll', update, { passive: true });
+    update();
+  }
+
+  // ===== Scroll-spy: highlight active nav link =====
+  function setupScrollSpy() {
+    const links = document.querySelectorAll('.nav-links a[data-spy]');
+    if (!links.length) return;
+    const map = {};
+    links.forEach(a => { map[a.getAttribute('data-spy')] = a; });
+
+    const obs = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        if (!entry.isIntersecting) return;
+        const a = map[entry.target.id];
+        if (!a) return;
+        links.forEach(l => l.classList.remove('active'));
+        a.classList.add('active');
+      });
+    }, { rootMargin: '-45% 0px -50% 0px' });
+
+    Object.keys(map).forEach(id => {
+      const sec = document.getElementById(id);
+      if (sec) obs.observe(sec);
+    });
+  }
+
   // ===== Init =====
   function init() {
     renderLeaderboard();
     setupObservers();
     setupSmoothScroll();
+    setupScrollProgress();
+    setupScrollSpy();
   }
 
   if (document.readyState === 'loading') {

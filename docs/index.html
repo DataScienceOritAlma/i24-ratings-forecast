@@ -34,16 +34,19 @@
 </head>
 <body>
 
+  <div class="scroll-progress" id="scrollProgress"></div>
+
   <!-- Navigation -->
   <nav class="nav">
     <div class="nav-container">
       <a href="#" class="nav-logo">📺 i24 Forecast</a>
       <ul class="nav-links">
-        <li><a href="#about">אודות</a></li>
-        <li><a href="#stats">מספרים</a></li>
-        <li><a href="#models">מודלים</a></li>
-        <li><a href="#tech">טכנולוגיה</a></li>
-        <li><a href="#links">קישורים</a></li>
+        <li><a href="#about" data-spy="about">אודות</a></li>
+        <li><a href="#stats" data-spy="stats">מספרים</a></li>
+        <li><a href="#models" data-spy="models">מודלים</a></li>
+        <li><a href="#tech" data-spy="tech">טכנולוגיה</a></li>
+        <li><a href="infographic.html">🔮 מקסם למדע</a></li>
+        <li><a class="nav-cta" href="https://i24-ratings-orit.streamlit.app" target="_blank" rel="noopener">🚀 אפליקציה</a></li>
       </ul>
     </div>
   </nav>
@@ -64,12 +67,22 @@
         <a href="https://i24-ratings-orit.streamlit.app" target="_blank" rel="noopener" class="btn btn-primary">
           🚀 לאפליקציה החיה
         </a>
+        <a href="infographic.html" class="btn btn-secondary">
+          🔮 מקסם למדע
+        </a>
         <a href="https://github.com/DataScienceOritAlma/i24-ratings-forecast" target="_blank" rel="noopener" class="btn btn-secondary">
-          📂 לקוד ב-GitHub
+          📂 GitHub
         </a>
       </div>
       <div class="hero-meta">
         <span>סיסמה לאפליקציה: <code>i24-2026-orit</code></span>
+      </div>
+
+      <div class="hero-kpis">
+        <div class="kpi"><span class="kpi-num">0.263</span><span class="kpi-lbl">MAE — המודל הזוכה</span></div>
+        <div class="kpi"><span class="kpi-num">0.603</span><span class="kpi-lbl">R² · 60% מוסבר</span></div>
+        <div class="kpi"><span class="kpi-num">19</span><span class="kpi-lbl">מודלים בהשוואה</span></div>
+        <div class="kpi"><span class="kpi-num">10K</span><span class="kpi-lbl">שורות · שנה שלמה</span></div>
       </div>
     </div>
   </header>
