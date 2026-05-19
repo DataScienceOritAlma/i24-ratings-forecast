@@ -165,7 +165,7 @@ run.font.color.rgb = SECONDARY
 byline = doc.add_paragraph()
 byline.alignment = WD_ALIGN_PARAGRAPH.CENTER
 set_rtl(byline)
-run = byline.add_run("אורית דקי | מאי 2025 – מאי 2026")
+run = byline.add_run("אורית עלמה זיו-נר | מאי 2025 – מאי 2026")
 run.font.name = "David"
 run.font.size = Pt(12)
 run.font.color.rgb = MUTED
@@ -582,7 +582,7 @@ add_quote(doc,
     "דרך 3 גרסאות מידול, השוואת 19 מודלים, ניתוח שגיאות מעמיק, "
     "ועד מערכת חיה עם URL לשיתוף. כל החלטה נשענת על מספר וכל מספר נשען על קוד שאפשר להריץ מחדש."
 )
-add_para(doc, "— אורית דקי, מאי 2026", align="left", color=MUTED)
+add_para(doc, "— אורית עלמה זיו-נר, מאי 2026", align="left", color=MUTED)
 
 # Save
 output = "פרוייקט_i24_סיכום.docx"
