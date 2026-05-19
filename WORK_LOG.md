@@ -5,6 +5,20 @@
 
 ---
 
+## 2026-05-18 — שלב 29: נכסי שיתוף — Open Graph + favicon
+
+שיפור portfolio: עד כה שיתוף הלינק (לינקדאין/וואטסאפ) הציג קופסה ריקה.
+
+### נוצר
+- `make_share_assets.py` — מייצר ב-matplotlib (עם `rtl()` bidi): `docs/og-cover.png` (1200×630, מיתוג i24 + "מקסם למדע" + MAE/R²/19 מודלים), `docs/icon-180.png`, `docs/favicon-32.png`
+- `docs/favicon.svg` — favicon וקטורי (מונוגרמת i24, גרדיאנט מותג)
+- `docs/index.html` + `docs/infographic.html` — נוספו תגי Open Graph + Twitter Card + favicon + theme-color (URL/תמונה אבסולוטיים)
+
+### אומת
+תמונת ה-OG נבדקה ויזואלית — עברית RTL תקינה, מיתוג נקי. כעת כל שיתוף מציג כרטיס מקצועי.
+
+---
+
 ## 2026-05-18 — שלב 28: תיקון עברית הפוכה בגרף 8
 
 המשתמשת דיווחה: בגרף 8 (`08_error_by_status.png`) תוויות הסטטוס בעברית הוצגו הפוך ("מבזק"→"קזבמ"). הסיבה: matplotlib לא מסדר RTL.

@@ -56,6 +56,7 @@
 - `docs/style.css` — Heebo + Grid + CSS variables, fully responsive
 - `docs/script.js` — IntersectionObserver, count-up, leaderboard bars
 - `docs/infographic.{html,css}` — **דאטה סיינס בציורים + מילון משולב** (דף המושגים היחיד): 23 איורי SVG; לחיצה על כרטיס פותחת modal עם הציור בגדול + הסבר 3 רמות (פשוט/טכני/בפרוייקט). סטטי, כולל `@media print`. החליף את glossary.* + journey.* שנמחקו (2026-05-18, צמצום דפים לפי בקשת המשתמשת)
+- `docs/{favicon.svg,favicon-32.png,icon-180.png,og-cover.png}` — נכסי שיתוף (Open Graph + favicon), נוצרים ע"י `make_share_assets.py` (matplotlib + bidi RTL)
 - `docs/viz/` — 8 PNG-ים
 - `docs/README.md` — הוראות פריסה ל-GitHub Pages
 
