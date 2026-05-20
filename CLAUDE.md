@@ -28,6 +28,7 @@
 - `model_train_advanced.py` — V2, tuning + hybrid + competitor lags
 - `model_train_timeseries.py` — מודלי TS קלאסיים (SARIMAX, Additive)
 - `model_train_all.py` — **V3, 19 מודלים** + ניתוח שגיאות מעמיק
+- `retrospective_analysis.py` — ניתוח רטרוספקטיבי: HistGB מול אמת על 1,957 שורות test. מפיק `RETROSPECTIVE.md` + `retrospective_viz/`
 
 ### תוצאות
 - `predictions.xlsx` — חיזויי V1 (4 מודלים)
