@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import NavBar from "@/components/NavBar";
+import { PredictionCardSkeleton } from "@/components/Skeleton";
 
 interface Prediction {
   id: string;
@@ -71,7 +72,11 @@ export default function HistoryPage() {
         )}
 
         {predictions === null && (
-          <div className="text-center text-muted py-12">טוען...</div>
+          <div className="grid sm:grid-cols-2 gap-4">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <PredictionCardSkeleton key={i} />
+            ))}
+          </div>
         )}
 
         {predictions && predictions.length === 0 && (

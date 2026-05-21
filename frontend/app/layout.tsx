@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Heebo } from "next/font/google";
 import "./globals.css";
+import Footer from "@/components/Footer";
 
 const heebo = Heebo({
   subsets: ["latin", "hebrew"],
@@ -16,7 +17,10 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="he" dir="rtl" className={heebo.variable}>
-      <body className="font-sans antialiased">{children}</body>
+      <body className="font-sans antialiased min-h-screen flex flex-col">
+        <div className="flex-1">{children}</div>
+        <Footer />
+      </body>
     </html>
   );
 }

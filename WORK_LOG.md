@@ -5,6 +5,35 @@
 
 ---
 
+## 2026-05-21 — שלב 44: שלב 5 — Polish (ToS, פרטיות, Footer, 404, favicon, skeletons)
+
+ליטוש לקראת Launch. כל מה שאפשר בלי לוקפ-תלות בשירות חיצוני.
+
+### דפים חוקיים בעברית
+- **`/terms`** — תנאי שימוש (7 סעיפים): הסכמה · רישום · תשלום (₪990/חודש + Trial 14) · הגבלת אחריות · שימוש מותר/אסור · שינויים · סמכות שיפוט תל אביב
+- **`/privacy`** — מדיניות פרטיות (6 סעיפים): מה נאסף · מה לא · RLS פר-ארגון · 4 ספקי תשתית (Supabase Frankfurt, Stripe, Vercel, Render) · הזכויות של המשתמש · הסבר על נתוני הרייטינג ההיסטוריים (אגרגטיביים)
+
+### רכיבים משותפים
+- **`components/Footer.tsx`** — copyright, קישורים ל-Terms/Privacy/GitHub. מופיע בכל הדפים דרך layout
+- **`components/Skeleton.tsx`** — Skeleton + PredictionCardSkeleton (4 כרטיסי-shimmer בזמן טעינת היסטוריה)
+- **`app/not-found.tsx`** — 404 מותאם עם 📺 + כפתור חזרה
+- **`app/icon.svg`** — favicon וקטורי (i24 מונוגרמה, גרדיאנט מותג, נקודה כתומה)
+- **`app/layout.tsx`** — flex-col + Footer ב-bottom, יכוון לדפים כל גובה המסך
+
+### אימות
+- `npx next build` — נקי, **10 routes סטטיים** (login + 5 authenticated + terms + privacy + 404 + icon)
+
+### Stripe (משלב 4) — סטטוס
+ממתין להגדרה (15 דק', ראה STRIPE_SETUP.md). שאר המוצר חי.
+
+### עוד לפני Launch (שלב 6)
+1. Vercel signup + פריסה (פעולה של אורית)
+2. Render signup + פריסה (פעולה של אורית)
+3. Sentry/Plausible (אופציונליים)
+4. הסכמה מ-i24 לדאטא (חוסם — ראה PRODUCT_SPEC.md)
+
+---
+
 ## 2026-05-21 — שלב 43: **שלב 4 — Stripe Subscriptions** (קוד מלא, ממתין להגדרה)
 
 תשתית התשלומים בנויה מקצה-לקצה. הקוד יעבוד מיידית ברגע שיתווספו 3 משתני סביבה של Stripe.
