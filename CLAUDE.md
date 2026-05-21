@@ -49,6 +49,14 @@
 - **`SCHEMA.md`** — תכנון שכבת Data: 6 טבלאות (organizations, profiles, subscriptions, programs, broadcasts, predictions), RLS, indices, תכנית הגירה xlsx→Postgres
 - **`schema.sql`** — DDL להרצה ישירה ב-Supabase SQL Editor (6 טבלאות + indices + RLS policies + triggers, אידמפוטנטי)
 - **`setup_db.py`** — מריץ את `schema.sql` ב-Supabase דרך psycopg (אלטרנטיבה ל-SQL Editor)
+
+### Backend (FastAPI ML Service — שלב 2, 2026-05-21)
+- `backend/main.py` — FastAPI app: `/health`, `/predict`, `/docs`. טוען model_saved.joblib + היסטוריה מ-Supabase ב-startup
+- `backend/prediction_logic.py` — חישוב lag features, slot uncertainty, trend (פורט מ-utils/predict.py בלי תלות ב-Streamlit)
+- `backend/requirements.txt` — FastAPI · uvicorn · sklearn · pandas · psycopg · dotenv
+- `backend/render.yaml` — תצורת פריסה אוטומטית ל-Render.com
+- `backend/README.md` — הרצה מקומית + מדריך פריסה
+- הרצה מקומית: `cd backend && py -3 -m uvicorn main:app --reload`
 - **`migrate_to_supabase.py`** — מעלה תוכניות+שידורים מ-`תוכניות_מעובד.xlsx` ל-Postgres דרך psycopg ישיר. Type-aware: datetime.time, uuid.UUID, NaN→None. דורש `.env` עם DATABASE_URL
 - **`.env.example`** — תבנית למשתני סביבה (Project URL + Publishable key כבר מוטמעים; secrets ב-`.env` המקומי בלבד)
 - `GLOSSARY.md` — **מילון מושגים מקיף** — DS/ML + אלגוריתמים, מוסבר בשלוש רמות (ילד/טכני/פרוייקט)

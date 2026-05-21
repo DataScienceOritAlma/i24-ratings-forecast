@@ -5,6 +5,29 @@
 
 ---
 
+## 2026-05-21 — שלב 39: **שלב 2 הושלם — FastAPI Backend עם /predict חי**
+
+שכבת Backend של ארכיטקטורת 3-השכבות בנויה ונבדקה לוקאלית. השירות מתחבר ל-Supabase לטעינת היסטוריה, טוען את `model_saved.joblib`, וחוזה רייטינג עם רווח-ביטחון.
+
+### קבצים שנוצרו (`backend/`)
+- `main.py` — FastAPI app: `/health`, `/predict`, `/docs`. טוען מודל+היסטוריה ב-startup
+- `prediction_logic.py` — חישוב lag features, slot uncertainty, trend, viewers (פורט מ-utils/predict.py בלי תלות ב-Streamlit)
+- `requirements.txt` — FastAPI 0.118 · uvicorn · scikit-learn · pandas · psycopg · python-dotenv
+- `render.yaml` — תצורת פריסה אוטומטית ל-Render.com (region: frankfurt, plan: free, healthCheckPath: /health)
+- `README.md` — הוראות הרצה מקומית + מדריך פריסה ל-Render (4 צעדים)
+
+### בדיקת חיזוי לוקאלית
+- "קבינט שישי" · 2026-06-12 · 19:50-22:00 · שגרה
+- → רייטינג **3.437** · טווח 80%: [2.19, 4.69] · ~86K בתי-אב · ~197K צופים
+- מקור אי-ודאות: תוכנית × רצועה (n≥5 — מספיק היסטוריה)
+- מודל: HistGradientBoosting · expected MAE 0.263
+
+### הבא בתור
+- **פריסה ל-Render** — דורש פעולה של המשתמשת: signup ב-Render + הוספת `DATABASE_URL` ב-Environment. תוך 5-7 דקות יש URL חי.
+- **שלב 3:** Next.js Frontend (RTL/עברית) — דשבורד, היסטוריה, חשבון
+
+---
+
 ## 2026-05-21 — שלב 38: **שלב 1 הושלם — Supabase חי עם 9,311 שידורים** 🎉
 
 הסכמה רצה. המיגרציה הצליחה. שכבת Data של ארכיטקטורת 3-השכבות **חיה בענן**.

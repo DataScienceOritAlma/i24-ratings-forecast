@@ -1,0 +1,27 @@
+# Render.com deployment config — i24 Ratings Forecast API
+# הוראות:
+#   1. הירשמי ב-https://render.com (Connect to GitHub → אישור)
+#   2. Dashboard → New + → Web Service → Connect i24-ratings-forecast repo
+#   3. Render יזהה את הקובץ הזה אוטומטית. אישור.
+#   4. תוסיפי את DATABASE_URL ב-Environment (Settings → Environment)
+#      ערך זהה ל-.env המקומי
+#   5. Deploy → תוך ~5 דק' ה-API חי בכתובת:
+#      https://i24-ratings-api.onrender.com
+
+services:
+  - type: web
+    name: i24-ratings-api
+    runtime: python
+    plan: free                       # ~750 שעות/חודש, נרדם אחרי 15 דק' חוסר-פעילות
+    region: frankfurt                # אותו region כמו Supabase = latency מינימלי
+    rootDir: .                       # repo root (utils/ + model_saved.joblib נגישים)
+    buildCommand: pip install -r backend/requirements.txt
+    startCommand: cd backend && uvicorn main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /health
+    envVars:
+      - key: DATABASE_URL
+        sync: false                  # set manually in Render dashboard
+      - key: PYTHON_VERSION
+        value: "3.11"
+      - key: PYTHONUNBUFFERED
+        value: "1"
