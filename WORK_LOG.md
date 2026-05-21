@@ -5,6 +5,30 @@
 
 ---
 
+## 2026-05-21 — שלב 42: 3 דפים חדשים (Chat NL · Account · Analytics) + NavBar + autocomplete
+
+הרחבת ה-MVP ל-7 דפים סטטיים. כל הדפים משתמשים ב-NavBar משותף עם 5 כרטיסיות + יציאה.
+
+### Backend חדש
+- `POST /ask` — מקבל שאלה בעברית טבעית, פולט פענוח (program + date + scenario) + חיזוי + תשובה מנוסחת
+- מפענח Hebrew heuristic: "מחר/היום/שבוע", "יום שישי הקרוב/הבא", תאריך מפורש (dd/mm/yyyy), שמות תוכניות מהקטלוג (179)
+- זוהה אירוע מיוחד אם השאלה מזכירה "אירוע / מבזק / ברייקינג / פיגוע / מבצע / חג"
+- נבדק לוקאלית: "מה הצפי לקבינט שישי ביום שישי הבא?" → confidence high · rating 3.33 · 83K בתי-אב
+
+### Frontend חדש
+- `components/NavBar.tsx` — ניווט משותף עם 5 כרטיסיות (🎯 חיזוי · 💬 שאל · 📚 היסטוריה · 📊 אנליטיקה · 👤 חשבון), highlight של דף נוכחי
+- `app/chat/page.tsx` — צ'אט בסגנון WhatsApp: הודעת ברוכים, suggestions, שליחה, תשובה מקורות (הודעה + מטריקות פר-תשובה)
+- `app/account/page.tsx` — פרטי משתמש, ארגון, מנוי (Trial · ₪990/Pro placeholder), Danger Zone
+- `app/analytics/page.tsx` — מספרים אישיים (סה"כ / השבוע / שגרה / מיוחד) + ביצועי מודל (MAE / R² / ±0.2 / ±0.5) + bar-chart MAE לפי סטטוס + תובנת drift
+- `app/dashboard/page.tsx` — נוסף **datalist autocomplete** לשם תוכנית (טוען top-200 מ-`programs` table לפי n_broadcasts). NavBar משותף
+- `app/history/page.tsx` — מעבר ל-NavBar משותף
+
+### אימות
+- `npx next build` — נקי. 7 דפים סטטיים, ~165-170KB First Load JS
+- Backend `/ask` נבדק ב-Python (curl נכשל על UTF-8 ב-Windows PowerShell)
+
+---
+
 ## 2026-05-21 — שלב 41: היסטוריית תחזיות נשמרת ב-DB + דף `/history`
 
 חיבור מלא קצה-לקצה: תחזית → API → DB → תצוגה מאוחרת. המשתמשת יכולה לחזור באפליקציה ולראות את כל מה שעשתה.

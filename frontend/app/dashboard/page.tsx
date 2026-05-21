@@ -1,22 +1,22 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { predict, type PredictResponse } from "@/lib/api";
+import NavBar from "@/components/NavBar";
 
 export default function DashboardPage() {
   const router = useRouter();
   const [email, setEmail] = useState<string | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
   const [orgId, setOrgId] = useState<string | null>(null);
+  const [programs, setPrograms] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [result, setResult] = useState<PredictResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  // form
   const [programName, setProgramName] = useState("קבינט שישי");
   const [targetDate, setTargetDate] = useState(() => {
     const d = new Date();
@@ -30,21 +30,25 @@ export default function DashboardPage() {
 
   useEffect(() => {
     supabase.auth.getSession().then(async ({ data }) => {
-      if (!data.session) {
-        router.replace("/");
-        return;
-      }
+      if (!data.session) { router.replace("/"); return; }
       const user = data.session.user;
       setEmail(user.email ?? null);
       setUserId(user.id);
 
-      // get user's organization_id from profiles
       const { data: prof } = await supabase
         .from("profiles")
         .select("organization_id")
         .eq("id", user.id)
         .maybeSingle();
       setOrgId(prof?.organization_id ?? null);
+
+      // Load programs for autocomplete
+      const { data: progs } = await supabase
+        .from("programs")
+        .select("name")
+        .order("n_broadcasts", { ascending: false })
+        .limit(200);
+      if (progs) setPrograms(progs.map((p) => p.name as string));
     });
   }, [router]);
 
@@ -64,11 +68,9 @@ export default function DashboardPage() {
       });
       setResult(r);
 
-      // Save to predictions table (best-effort, errors don't block UI)
       if (userId && orgId) {
         setSaving(true);
         try {
-          // Look up program_id (optional)
           const { data: prog } = await supabase
             .from("programs")
             .select("id")
@@ -105,44 +107,11 @@ export default function DashboardPage() {
     }
   }
 
-  async function handleSignOut() {
-    await supabase.auth.signOut();
-    router.replace("/");
-  }
-
   if (!email) return <div className="p-8 text-center text-muted">טוען...</div>;
 
   return (
     <main className="min-h-screen">
-      <header className="bg-gradient-to-br from-brand-dark to-brand-primary text-white py-6 shadow-lg">
-        <div className="max-w-5xl mx-auto px-6 flex items-center justify-between flex-wrap gap-3">
-          <div>
-            <div className="text-xs opacity-80">i24 Ratings Forecast</div>
-            <h1 className="text-2xl font-black">לוח חיזוי תחזיות</h1>
-          </div>
-          <nav className="flex items-center gap-2 text-sm">
-            <Link
-              href="/dashboard"
-              className="px-3 py-1.5 rounded-lg bg-white/20 font-bold"
-            >
-              🎯 חיזוי חדש
-            </Link>
-            <Link
-              href="/history"
-              className="px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 transition"
-            >
-              📚 היסטוריה
-            </Link>
-            <span className="opacity-90 ms-3 hidden sm:inline" dir="ltr">{email}</span>
-            <button
-              onClick={handleSignOut}
-              className="px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 transition"
-            >
-              יציאה
-            </button>
-          </nav>
-        </div>
-      </header>
+      <NavBar email={email} title="לוח חיזוי תחזיות" />
 
       <div className="max-w-5xl mx-auto px-6 py-8 grid md:grid-cols-2 gap-8">
         <section className="bg-white rounded-2xl shadow-card p-6">
@@ -153,12 +122,21 @@ export default function DashboardPage() {
               <input
                 type="text"
                 required
+                list="programs-list"
                 value={programName}
                 onChange={(e) => setProgramName(e.target.value)}
                 className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:border-brand-primary focus:outline-none"
+                placeholder="התחילי להקליד..."
               />
+              <datalist id="programs-list">
+                {programs.map((p) => (
+                  <option key={p} value={p} />
+                ))}
+              </datalist>
               <p className="text-xs text-muted mt-1">
-                לדוגמה: קבינט שישי · חדר החדשות איי 24
+                {programs.length > 0
+                  ? `${programs.length} תוכניות בקטלוג — הקלידי וקבלי השלמה אוטומטית`
+                  : "טוען קטלוג..."}
               </p>
             </div>
 
@@ -265,13 +243,9 @@ export default function DashboardPage() {
               </div>
               <div className="text-sm opacity-90 mb-4">
                 טווח 80%:{" "}
-                <span className="font-bold tabular-nums">
-                  {result.prediction_low.toFixed(2)}
-                </span>{" "}
-                —{" "}
-                <span className="font-bold tabular-nums">
-                  {result.prediction_high.toFixed(2)}
-                </span>
+                <span className="font-bold tabular-nums">{result.prediction_low.toFixed(2)}</span>
+                {" — "}
+                <span className="font-bold tabular-nums">{result.prediction_high.toFixed(2)}</span>
               </div>
 
               <div className="grid grid-cols-2 gap-3 mt-6">
@@ -300,6 +274,7 @@ export default function DashboardPage() {
             <div className="bg-white rounded-2xl shadow-card p-6 text-center text-muted">
               <div className="text-4xl mb-3">📊</div>
               <p>מלאי את הטופס ולחצי &quot;חשב תחזית&quot; כדי לראות את התוצאה.</p>
+              <p className="text-xs mt-3">או נסי את הצ&apos;אט החכם — &quot;💬 שאל&quot; בתפריט למעלה.</p>
             </div>
           )}
         </section>

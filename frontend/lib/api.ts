@@ -39,3 +39,26 @@ export async function health(): Promise<{ status: string; model: string; history
   if (!res.ok) throw new Error(`API ${res.status}`);
   return res.json();
 }
+
+export interface AskRequest { question: string; }
+
+export interface AskResponse {
+  question: string;
+  answer: string;
+  extracted: { program_name: string | null; target_date: string; scenario: string };
+  prediction: PredictResponse | null;
+  confidence: "high" | "medium" | "low";
+}
+
+export async function ask(req: AskRequest): Promise<AskResponse> {
+  const res = await fetch(`${API}/ask`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(req),
+  });
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`API ${res.status}: ${text}`);
+  }
+  return res.json();
+}

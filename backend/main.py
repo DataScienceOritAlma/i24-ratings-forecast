@@ -7,8 +7,9 @@ history from Supabase on startup, and serves /predict + /health.
 from __future__ import annotations
 
 import os
+import re
 import sys
-from datetime import date as date_t, time as time_t
+from datetime import date as date_t, time as time_t, timedelta, datetime
 from pathlib import Path
 from typing import Optional
 
@@ -98,6 +99,77 @@ def _load_history() -> pd.DataFrame:
 
 
 HISTORY_DF = _load_history()
+# Sorted by length DESC so longest-match-wins in extraction
+PROGRAM_CATALOG = sorted(
+    HISTORY_DF["שם תוכנית"].dropna().astype(str).unique().tolist(),
+    key=len,
+    reverse=True,
+)
+print(f"[startup] ✓ catalog: {len(PROGRAM_CATALOG)} unique programs")
+
+
+# ============================================================
+# NL helpers (mock GenAI — heuristic Hebrew parser)
+# ============================================================
+HE_DAYS = {
+    "ראשון": 6, "שני": 0, "שלישי": 1, "רביעי": 2, "חמישי": 3, "שישי": 4, "שבת": 5,
+}
+
+
+def _next_weekday(target_weekday: int) -> date_t:
+    today = date_t.today()
+    days_ahead = (target_weekday - today.weekday()) % 7
+    if days_ahead == 0:
+        days_ahead = 7
+    return today + timedelta(days=days_ahead)
+
+
+def extract_date_he(text: str) -> Optional[date_t]:
+    t = text.strip()
+    today = date_t.today()
+    if "מחר" in t:
+        return today + timedelta(days=1)
+    if "היום" in t:
+        return today
+    if "שבוע" in t or "שבוע הבא" in t:
+        return today + timedelta(days=7)
+    if "חודש" in t:
+        return today + timedelta(days=30)
+    for day_name, wd in HE_DAYS.items():
+        if day_name in t and ("הקרוב" in t or "הבא" in t or "ב" + day_name in t):
+            return _next_weekday(wd)
+    # explicit date: dd/mm/yyyy or dd-mm-yyyy or yyyy-mm-dd
+    m = re.search(r"(\d{1,2})[/\-.](\d{1,2})[/\-.](\d{2,4})", t)
+    if m:
+        d, mo, y = int(m[1]), int(m[2]), int(m[3])
+        if y < 100:
+            y += 2000
+        try:
+            return date_t(y, mo, d)
+        except ValueError:
+            pass
+    return None
+
+
+def extract_program(text: str) -> Optional[str]:
+    for name in PROGRAM_CATALOG:
+        if name in text:
+            return name
+    # Try source_name match (program without "ש.ח" suffix)
+    if "שם תוכנית_מקור" in HISTORY_DF.columns:
+        for name in sorted(
+            HISTORY_DF["שם תוכנית_מקור"].dropna().astype(str).unique(),
+            key=len, reverse=True,
+        ):
+            if name and len(name) >= 4 and name in text:
+                return name
+    return None
+
+
+def detect_scenario(text: str) -> str:
+    if any(w in text for w in ["אירוע", "מבזק", "ברייקינג", "פיגוע", "מבצע", "חג"]):
+        return "special_event"
+    return "routine"
 
 
 # ============================================================
@@ -143,6 +215,18 @@ class PredictResponse(BaseModel):
     metadata: dict
 
 
+class AskRequest(BaseModel):
+    question: str = Field(..., description="שאלה בעברית חופשית")
+
+
+class AskResponse(BaseModel):
+    question: str
+    answer: str               # explanation in Hebrew
+    extracted: dict           # {program_name, target_date, scenario, ...}
+    prediction: Optional[PredictResponse] = None
+    confidence: str           # "high" | "medium" | "low" — how sure we are we parsed correctly
+
+
 # ============================================================
 # Endpoints
 # ============================================================
@@ -165,6 +249,75 @@ def health():
         "history_rows": len(HISTORY_DF),
         "expected_mae": EXPECTED_MAE,
     }
+
+
+@app.post("/ask", response_model=AskResponse)
+def ask(req: AskRequest):
+    q = req.question.strip()
+    program = extract_program(q)
+    target = extract_date_he(q) or (date_t.today() + timedelta(days=7))
+    scenario = detect_scenario(q)
+
+    # Confidence based on what we managed to extract
+    if program and any(kw in q for kw in ["מחר", "היום", "שבוע", "ראשון", "שני", "שלישי",
+                                          "רביעי", "חמישי", "שישי", "שבת"]):
+        confidence = "high"
+    elif program:
+        confidence = "medium"
+    else:
+        confidence = "low"
+
+    extracted = {
+        "program_name": program,
+        "target_date": str(target),
+        "scenario": scenario,
+    }
+
+    if not program:
+        return AskResponse(
+            question=q,
+            answer=(
+                "לא הצלחתי לזהות איזו תוכנית שאלת עליה. נסי לנסח עם שם תוכנית "
+                "ספציפי, למשל: 'מה הצפי לקבינט שישי ביום שישי הבא?'"
+            ),
+            extracted=extracted,
+            confidence="low",
+        )
+
+    # Build prediction internally
+    pred_req = PredictRequest(
+        program_name=program,
+        target_date=target,
+        start_time=time_t(19, 50),
+        end_time=time_t(22, 0),
+        scenario=scenario,  # type: ignore[arg-type]
+        status="שידור חי",
+    )
+    pred = predict(pred_req)
+
+    weekday_he_name = {
+        0: "שני", 1: "שלישי", 2: "רביעי", 3: "חמישי", 4: "שישי", 5: "שבת", 6: "ראשון"
+    }[target.weekday()]
+    scenario_he = "אירוע מיוחד" if scenario == "special_event" else "שגרה"
+
+    answer = (
+        f"📊 תחזית לתוכנית **{program}** ב{weekday_he_name} {target.strftime('%d/%m/%Y')} "
+        f"({scenario_he}):\n\n"
+        f"רייטינג צפוי: **{pred.predicted_rating:.2f}**\n"
+        f"טווח 80%: {pred.prediction_low:.2f} – {pred.prediction_high:.2f}\n"
+        f"בתי-אב מוערכים: {pred.estimated_households:,}\n"
+        f"צופים מוערכים: {pred.estimated_viewers:,}\n\n"
+        f"מקור אי-הוודאות: {pred.uncertainty_source}. "
+        f"המודל: {pred.model} (MAE היסטורי 0.263)."
+    )
+
+    return AskResponse(
+        question=q,
+        answer=answer,
+        extracted=extracted,
+        prediction=pred,
+        confidence=confidence,
+    )
 
 
 @app.post("/predict", response_model=PredictResponse)

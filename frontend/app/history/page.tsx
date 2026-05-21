@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
+import NavBar from "@/components/NavBar";
 
 interface Prediction {
   id: string;
@@ -56,44 +57,11 @@ export default function HistoryPage() {
     });
   }, [router]);
 
-  async function handleSignOut() {
-    await supabase.auth.signOut();
-    router.replace("/");
-  }
-
   if (!email) return <div className="p-8 text-center text-muted">טוען...</div>;
 
   return (
     <main className="min-h-screen">
-      <header className="bg-gradient-to-br from-brand-dark to-brand-primary text-white py-6 shadow-lg">
-        <div className="max-w-5xl mx-auto px-6 flex items-center justify-between flex-wrap gap-3">
-          <div>
-            <div className="text-xs opacity-80">i24 Ratings Forecast</div>
-            <h1 className="text-2xl font-black">היסטוריית תחזיות</h1>
-          </div>
-          <nav className="flex items-center gap-2 text-sm">
-            <Link
-              href="/dashboard"
-              className="px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 transition"
-            >
-              🎯 חיזוי חדש
-            </Link>
-            <Link
-              href="/history"
-              className="px-3 py-1.5 rounded-lg bg-white/20 font-bold"
-            >
-              📚 היסטוריה
-            </Link>
-            <span className="opacity-90 ms-3 hidden sm:inline" dir="ltr">{email}</span>
-            <button
-              onClick={handleSignOut}
-              className="px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 transition"
-            >
-              יציאה
-            </button>
-          </nav>
-        </div>
-      </header>
+      <NavBar email={email} title="היסטוריית תחזיות" />
 
       <div className="max-w-5xl mx-auto px-6 py-8">
         {error && (
