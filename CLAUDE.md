@@ -51,9 +51,12 @@
 - **`setup_db.py`** — מריץ את `schema.sql` ב-Supabase דרך psycopg (אלטרנטיבה ל-SQL Editor)
 
 ### Frontend (Next.js — שלב 3, 2026-05-21)
-- `frontend/app/layout.tsx` — RTL/Hebrew · Heebo font · global metadata
-- `frontend/app/page.tsx` — מסך התחברות/הרשמה (Supabase Auth)
-- `frontend/app/dashboard/page.tsx` — טופס חיזוי + תצוגת תוצאה
+- `frontend/app/layout.tsx` — RTL/Hebrew · Heebo font · metadata (title template, OG, Twitter, keywords, robots)
+- `frontend/app/page.tsx` — דף נחיתה שיווקי (hero + features + pricing + CTA)
+- `frontend/app/login/page.tsx` — מסך התחברות/הרשמה (Supabase Auth, signin/signup tabs)
+- `frontend/app/dashboard/page.tsx` — טופס חיזוי + תוצאה (KPI strip, confidence bar, date shortcuts, recent-5)
+- `frontend/app/chat/page.tsx`, `history/page.tsx`, `analytics/page.tsx`, `account/page.tsx` — 4 מסכי-אזור-מחובר
+- `frontend/app/robots.ts` + `sitemap.ts` — SEO scaffolding (חוסם נתיבים מאחורי auth)
 - `frontend/lib/supabase.ts` — Supabase JS client
 - `frontend/lib/api.ts` — קליינט ל-Backend FastAPI
 - `frontend/tailwind.config.ts` — מותג: brand-primary #1E5DB8, brand-accent #FF6B35

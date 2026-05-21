@@ -5,6 +5,23 @@
 
 ---
 
+## 2026-05-22 — שלב 48: ליטוש Analytics + שלד SEO
+
+Analytics קיבל ויזואליזציה אמיתית במקום מספרים שטוחים; הוספתי SEO בסיסי לקראת פריסה.
+
+### Analytics (`/analytics`) — `eef3aab`
+- **Sparkline SVG טהור** של פעילות ב-14 הימים האחרונים (בלי תלות בספריית גרפים) — area + line + נקודות, עם tooltip ו-grid
+- **Top-5 התוכניות שאת חוזה הכי הרבה** — בר אופקי לכל אחת מתוך 14 ימים
+- **ממוצע רייטינג** של תחזיות החלון כתג ליד הכותרת
+- כרטיסי-stats עם אייקונים + הדגשת "השבוע" ב-gradient כתום
+
+### SEO scaffolding — `eef3aab`
+- **`frontend/app/robots.ts`** (חדש) — מאפשר `/` ועמודי שיווק, חוסם `/dashboard /chat /history /analytics /account`
+- **`frontend/app/sitemap.ts`** (חדש) — 4 URLs ציבוריים: `/`, `/login`, `/terms`, `/privacy`
+- **`layout.tsx`** — title template, description עשיר, keywords (heb+eng), OG, Twitter card, robots index/follow
+
+---
+
 ## 2026-05-22 — שלב 47: ליטוש ויזואלי של 3 מסכי הליבה (Dashboard · Chat · History)
 
 ריענון UX של המסכים בהם המשתמש מבלה — בלי שינוי בלוגיקה. המטרה: שתרגיש כמו מוצר SaaS אמיתי, לא דמו.
