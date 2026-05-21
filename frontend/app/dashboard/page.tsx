@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { predict, type PredictResponse } from "@/lib/api";
@@ -8,7 +9,10 @@ import { predict, type PredictResponse } from "@/lib/api";
 export default function DashboardPage() {
   const router = useRouter();
   const [email, setEmail] = useState<string | null>(null);
+  const [userId, setUserId] = useState<string | null>(null);
+  const [orgId, setOrgId] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
   const [result, setResult] = useState<PredictResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -25,12 +29,22 @@ export default function DashboardPage() {
   const [status, setStatus] = useState("שידור חי");
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => {
+    supabase.auth.getSession().then(async ({ data }) => {
       if (!data.session) {
         router.replace("/");
         return;
       }
-      setEmail(data.session.user.email ?? null);
+      const user = data.session.user;
+      setEmail(user.email ?? null);
+      setUserId(user.id);
+
+      // get user's organization_id from profiles
+      const { data: prof } = await supabase
+        .from("profiles")
+        .select("organization_id")
+        .eq("id", user.id)
+        .maybeSingle();
+      setOrgId(prof?.organization_id ?? null);
     });
   }, [router]);
 
@@ -49,6 +63,41 @@ export default function DashboardPage() {
         status,
       });
       setResult(r);
+
+      // Save to predictions table (best-effort, errors don't block UI)
+      if (userId && orgId) {
+        setSaving(true);
+        try {
+          // Look up program_id (optional)
+          const { data: prog } = await supabase
+            .from("programs")
+            .select("id")
+            .eq("name", programName)
+            .maybeSingle();
+
+          await supabase.from("predictions").insert({
+            organization_id: orgId,
+            user_id: userId,
+            program_id: prog?.id ?? null,
+            program_name: programName,
+            target_date: targetDate,
+            target_start_time: startTime + ":00",
+            target_end_time: endTime + ":00",
+            scenario,
+            predicted_rating: r.predicted_rating,
+            prediction_low: r.prediction_low,
+            prediction_high: r.prediction_high,
+            estimated_households: r.estimated_households,
+            estimated_viewers: r.estimated_viewers,
+            model_version: r.model,
+            uncertainty_source: r.uncertainty_source,
+          });
+        } catch (saveErr) {
+          console.warn("Failed to save prediction history:", saveErr);
+        } finally {
+          setSaving(false);
+        }
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
     } finally {
@@ -61,33 +110,41 @@ export default function DashboardPage() {
     router.replace("/");
   }
 
-  if (!email) {
-    return <div className="p-8 text-center text-muted">טוען...</div>;
-  }
+  if (!email) return <div className="p-8 text-center text-muted">טוען...</div>;
 
   return (
     <main className="min-h-screen">
-      {/* Header */}
       <header className="bg-gradient-to-br from-brand-dark to-brand-primary text-white py-6 shadow-lg">
-        <div className="max-w-5xl mx-auto px-6 flex items-center justify-between">
+        <div className="max-w-5xl mx-auto px-6 flex items-center justify-between flex-wrap gap-3">
           <div>
             <div className="text-xs opacity-80">i24 Ratings Forecast</div>
             <h1 className="text-2xl font-black">לוח חיזוי תחזיות</h1>
           </div>
-          <div className="flex items-center gap-3 text-sm">
-            <span className="opacity-90" dir="ltr">{email}</span>
+          <nav className="flex items-center gap-2 text-sm">
+            <Link
+              href="/dashboard"
+              className="px-3 py-1.5 rounded-lg bg-white/20 font-bold"
+            >
+              🎯 חיזוי חדש
+            </Link>
+            <Link
+              href="/history"
+              className="px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 transition"
+            >
+              📚 היסטוריה
+            </Link>
+            <span className="opacity-90 ms-3 hidden sm:inline" dir="ltr">{email}</span>
             <button
               onClick={handleSignOut}
               className="px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 transition"
             >
               יציאה
             </button>
-          </div>
+          </nav>
         </div>
       </header>
 
       <div className="max-w-5xl mx-auto px-6 py-8 grid md:grid-cols-2 gap-8">
-        {/* Form */}
         <section className="bg-white rounded-2xl shadow-card p-6">
           <h2 className="text-xl font-black text-brand-dark mb-4">🎯 חיזוי חדש</h2>
           <form onSubmit={handleSubmit} className="space-y-4">
@@ -100,7 +157,9 @@ export default function DashboardPage() {
                 onChange={(e) => setProgramName(e.target.value)}
                 className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:border-brand-primary focus:outline-none"
               />
-              <p className="text-xs text-muted mt-1">לדוגמה: קבינט שישי · חדר החדשות איי 24</p>
+              <p className="text-xs text-muted mt-1">
+                לדוגמה: קבינט שישי · חדר החדשות איי 24
+              </p>
             </div>
 
             <div className="grid grid-cols-2 gap-3">
@@ -188,13 +247,12 @@ export default function DashboardPage() {
           </form>
         </section>
 
-        {/* Result */}
         <section>
           {error && (
             <div className="bg-red-50 border border-red-200 rounded-2xl p-4 text-sm text-red-700">
               <strong>שגיאה:</strong> {error}
               <div className="mt-2 text-xs text-red-600">
-                ודאי שה-Backend רץ ב-localhost:8000 (cd backend && py -3 -m uvicorn main:app)
+                ודאי שה-Backend רץ ב-localhost:8000
               </div>
             </div>
           )}
@@ -206,9 +264,14 @@ export default function DashboardPage() {
                 {result.predicted_rating.toFixed(2)}
               </div>
               <div className="text-sm opacity-90 mb-4">
-                טווח 80%: <span className="font-bold tabular-nums">{result.prediction_low.toFixed(2)}</span>
-                {" — "}
-                <span className="font-bold tabular-nums">{result.prediction_high.toFixed(2)}</span>
+                טווח 80%:{" "}
+                <span className="font-bold tabular-nums">
+                  {result.prediction_low.toFixed(2)}
+                </span>{" "}
+                —{" "}
+                <span className="font-bold tabular-nums">
+                  {result.prediction_high.toFixed(2)}
+                </span>
               </div>
 
               <div className="grid grid-cols-2 gap-3 mt-6">
@@ -226,8 +289,9 @@ export default function DashboardPage() {
                 </div>
               </div>
 
-              <div className="mt-4 text-xs opacity-70 border-t border-white/20 pt-3">
-                מודל: {result.model} · מקור-אי-ודאות: {result.uncertainty_source}
+              <div className="mt-4 text-xs opacity-70 border-t border-white/20 pt-3 flex justify-between">
+                <span>מודל: {result.model}</span>
+                <span>{saving ? "שומר..." : "נשמר בהיסטוריה ✓"}</span>
               </div>
             </div>
           )}
@@ -235,7 +299,7 @@ export default function DashboardPage() {
           {!error && !result && (
             <div className="bg-white rounded-2xl shadow-card p-6 text-center text-muted">
               <div className="text-4xl mb-3">📊</div>
-              <p>מלאי את הטופס ולחצי "חשב תחזית" כדי לראות את התוצאה.</p>
+              <p>מלאי את הטופס ולחצי &quot;חשב תחזית&quot; כדי לראות את התוצאה.</p>
             </div>
           )}
         </section>

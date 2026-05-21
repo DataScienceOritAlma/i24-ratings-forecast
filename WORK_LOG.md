@@ -5,6 +5,27 @@
 
 ---
 
+## 2026-05-21 — שלב 41: היסטוריית תחזיות נשמרת ב-DB + דף `/history`
+
+חיבור מלא קצה-לקצה: תחזית → API → DB → תצוגה מאוחרת. המשתמשת יכולה לחזור באפליקציה ולראות את כל מה שעשתה.
+
+### Supabase
+- `supabase_auth_trigger.sql` — trigger `on_auth_user_created` שיוצר אוטומטית `organizations` + `profiles` (role='owner') לכל משתמש חדש שנרשם. RLS עובד מיידית.
+- `predictions` table — נוספו 2 עמודות: `program_name` (לתצוגה גם בלי FK), `uncertainty_source` (מטא-דאטא).
+
+### Frontend
+- `app/dashboard/page.tsx` — אחרי תחזית מוצלחת, שומר ל-`predictions` table (org_id + user_id מ-profile). ניווט עליון עם "🎯 חיזוי חדש" / "📚 היסטוריה".
+- `app/history/page.tsx` — חדש. מציג עד 100 תחזיות אחרונות של הארגון (RLS פר-org). כרטיסים עם רייטינג גדול + טווח + בתי-אב/צופים + תאריך-יצירה.
+
+### תיקון באג
+- ב-`app/layout.tsx` — `@import` של Heebo גרם ל-CSS parse error. עברתי ל-`next/font/google` (הסטנדרט של Next.js — bundling אוטומטי, מהיר יותר).
+
+### אימות
+- `npx next build` — נקי. 4 דפים סטטיים: `/`, `/dashboard`, `/history`, `/_not-found`.
+- Bundle: ~168KB First Load JS
+
+---
+
 ## 2026-05-21 — שלב 40: **שלב 3 הושלם — Next.js Frontend עם Auth + Dashboard**
 
 שכבת Frontend בנויה. Next.js 15 + TypeScript + Tailwind + Supabase Auth, RTL/עברית, Heebo font, מותג i24. עובר build נקי, 5 דפים סטטיים.

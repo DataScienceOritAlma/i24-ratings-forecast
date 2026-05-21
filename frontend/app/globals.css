@@ -2,18 +2,13 @@
 @tailwind components;
 @tailwind utilities;
 
-@import url("https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;700;900&display=swap");
-
-html {
-  font-family: "Heebo", Arial, system-ui, sans-serif;
-}
-
 body {
   background: #F1F5F9;
   color: #1A202C;
   min-height: 100vh;
+  font-family: var(--font-heebo), "Heebo", Arial, system-ui, sans-serif;
 }
 
-/* RTL-aware: dir="rtl" is on <html>, this ensures inputs align right */
+/* RTL-aware input alignment */
 input, textarea, select { text-align: right; }
 input[type="number"], input[type="date"], input[type="time"] { text-align: left; direction: ltr; }
