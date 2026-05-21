@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import NavBar from "@/components/NavBar";
+import { Skeleton } from "@/components/Skeleton";
 
 export default function AnalyticsPage() {
   const router = useRouter();
@@ -42,10 +43,18 @@ export default function AnalyticsPage() {
         <section>
           <h2 className="text-lg font-black text-brand-dark mb-3">📈 השימוש שלי</h2>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <Stat n={stats?.total ?? 0} label="סה״כ תחזיות" />
-            <Stat n={stats?.thisWeek ?? 0} label="השבוע" highlight />
-            <Stat n={stats?.routine ?? 0} label="שגרה" />
-            <Stat n={stats?.special ?? 0} label="אירועים מיוחדים" />
+            {stats === null ? (
+              Array.from({ length: 4 }).map((_, i) => (
+                <Skeleton key={i} className="h-24 rounded-2xl" />
+              ))
+            ) : (
+              <>
+                <Stat n={stats.total} label="סה״כ תחזיות" />
+                <Stat n={stats.thisWeek} label="השבוע" highlight />
+                <Stat n={stats.routine} label="שגרה" />
+                <Stat n={stats.special} label="אירועים מיוחדים" />
+              </>
+            )}
           </div>
         </section>
 

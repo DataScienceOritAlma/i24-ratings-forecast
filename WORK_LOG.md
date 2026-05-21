@@ -5,6 +5,17 @@
 
 ---
 
+## 2026-05-21 — שלב 45: Deploy configs + עוד polish
+
+### תצורות פריסה
+- **`frontend/vercel.json`** — Framework: nextjs, region: fra1, security headers (X-Content-Type-Options, X-Frame-Options, Referrer-Policy)
+- **`DEPLOY_GUIDE.md`** — מדריך מקצה-לקצה (~30 דק') לפריסת backend ל-Render + frontend ל-Vercel + CORS + Stripe webhook לפרודקשן + בדיקת קצה-לקצה
+
+### Polish נוסף
+- `app/analytics/page.tsx` — Skeleton במקום "טוען..." טקסטואלי בזמן טעינת stats
+
+---
+
 ## 2026-05-21 — שלב 44: שלב 5 — Polish (ToS, פרטיות, Footer, 404, favicon, skeletons)
 
 ליטוש לקראת Launch. כל מה שאפשר בלי לוקפ-תלות בשירות חיצוני.
