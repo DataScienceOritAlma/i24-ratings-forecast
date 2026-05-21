@@ -5,6 +5,39 @@
 
 ---
 
+## 2026-05-21 — שלב 43: **שלב 4 — Stripe Subscriptions** (קוד מלא, ממתין להגדרה)
+
+תשתית התשלומים בנויה מקצה-לקצה. הקוד יעבוד מיידית ברגע שיתווספו 3 משתני סביבה של Stripe.
+
+### Backend
+- `requirements.txt` — `stripe==11.4.1` נוסף
+- `main.py` — שני endpoints חדשים:
+  - `POST /checkout/create-session` — יוצר/משחזר Stripe Customer, מייצר Checkout Session (subscription mode, 14-day trial, metadata: org_id+user_id), מחזיר checkout_url + session_id
+  - `POST /stripe/webhook` — מאומת חתימה (HMAC), מטפל ב-`customer.subscription.created/updated/deleted`, מסנכרן ל-`subscriptions` table ב-Supabase (UPSERT לפי organization_id)
+- ב-startup: בדיקה אם STRIPE_SECRET_KEY מוגדר, אחרת רק לוג ושירות שב-503 ברור עם הפניה ל-STRIPE_SETUP.md
+
+### Frontend
+- `lib/api.ts` — `createCheckoutSession()` נוסף
+- `app/account/page.tsx` — שוכתב:
+  - קורא מ-`subscriptions` table → אם status=active/trialing + tier=pro → כרטיס ירוק "✅ Pro · Trial/פעיל" עם תאריך החיוב הבא
+  - אחרת — כרטיס כחול "Free" עם כפתור "🚀 שדרוג ל-Pro · ₪990/חודש"
+  - כפתור קורא ל-Backend, מפנה ל-`checkout_url` של Stripe
+  - מטפל ב-`?success=1` ו-`?canceled=1` בכתובת החזרה (Banner ירוק/צהוב)
+  - עטיפת `<Suspense>` ל-`useSearchParams` (דרישת Next 15)
+
+### תיעוד חדש
+- **`STRIPE_SETUP.md`** — מדריך 7 שלבים (~15 דק'): הרשמה ל-Stripe Test, יצירת מוצר/מחיר ב-₪990/חודש, קבלת keys, התקנת Stripe CLI לפיתוח, webhook secret, הפעלה
+- `.env.example` — נוספו 3 משתני Stripe + תוקן `aws-0`→`aws-1`
+
+### אימות
+- `npx next build` — נקי, 7 דפים, /account עם Suspense עובד
+- Backend up: `/health` 200 · `/checkout/create-session` 503 עם הודעה ברורה בעברית
+
+### הבא בתור (פעולה של אורית, ~15 דק')
+לפתוח Stripe Test → להוסיף keys → להריץ Stripe CLI לוקאלית → לבדוק checkout עם כרטיס 4242 4242 4242 4242
+
+---
+
 ## 2026-05-21 — שלב 42: 3 דפים חדשים (Chat NL · Account · Analytics) + NavBar + autocomplete
 
 הרחבת ה-MVP ל-7 דפים סטטיים. כל הדפים משתמשים ב-NavBar משותף עם 5 כרטיסיות + יציאה.

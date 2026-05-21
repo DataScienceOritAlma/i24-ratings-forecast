@@ -16,8 +16,9 @@ from typing import Optional
 import joblib
 import pandas as pd
 import psycopg
+import stripe
 from dotenv import load_dotenv
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
@@ -106,6 +107,31 @@ PROGRAM_CATALOG = sorted(
     reverse=True,
 )
 print(f"[startup] ✓ catalog: {len(PROGRAM_CATALOG)} unique programs")
+
+# ============================================================
+# Stripe (optional — only configured if STRIPE_SECRET_KEY set)
+# ============================================================
+STRIPE_SECRET = os.environ.get("STRIPE_SECRET_KEY", "")
+STRIPE_WEBHOOK_SECRET = os.environ.get("STRIPE_WEBHOOK_SECRET", "")
+STRIPE_PRICE_PRO = os.environ.get("STRIPE_PRICE_PRO_MONTHLY", "")
+
+if STRIPE_SECRET:
+    stripe.api_key = STRIPE_SECRET
+    print(f"[startup] ✓ Stripe configured (live: {not STRIPE_SECRET.startswith('sk_test_')})")
+else:
+    print("[startup] ⚠️  Stripe not configured (STRIPE_SECRET_KEY missing) — checkout disabled")
+
+
+def _require_stripe():
+    if not STRIPE_SECRET or not STRIPE_PRICE_PRO:
+        raise HTTPException(
+            status_code=503,
+            detail=(
+                "Stripe לא מוגדר. הוסיפי ב-.env: STRIPE_SECRET_KEY, "
+                "STRIPE_PRICE_PRO_MONTHLY, STRIPE_WEBHOOK_SECRET. "
+                "ראה STRIPE_SETUP.md."
+            ),
+        )
 
 
 # ============================================================
@@ -227,6 +253,18 @@ class AskResponse(BaseModel):
     confidence: str           # "high" | "medium" | "low" — how sure we are we parsed correctly
 
 
+class CheckoutRequest(BaseModel):
+    user_id: str
+    organization_id: str
+    email: str
+    return_url: str = Field(..., description="URL לחזרה אחרי תשלום (success or cancel)")
+
+
+class CheckoutResponse(BaseModel):
+    checkout_url: str
+    session_id: str
+
+
 # ============================================================
 # Endpoints
 # ============================================================
@@ -318,6 +356,129 @@ def ask(req: AskRequest):
         prediction=pred,
         confidence=confidence,
     )
+
+
+@app.post("/checkout/create-session", response_model=CheckoutResponse)
+def create_checkout_session(req: CheckoutRequest):
+    _require_stripe()
+
+    db_url = os.environ.get("DATABASE_URL")
+    customer_id: Optional[str] = None
+    if db_url:
+        with psycopg.connect(db_url) as conn, conn.cursor() as cur:
+            cur.execute(
+                "select stripe_customer_id from public.subscriptions where organization_id=%s",
+                (req.organization_id,),
+            )
+            row = cur.fetchone()
+            if row and row[0]:
+                customer_id = row[0]
+
+    if not customer_id:
+        customer = stripe.Customer.create(
+            email=req.email,
+            metadata={"organization_id": req.organization_id, "user_id": req.user_id},
+        )
+        customer_id = customer.id
+
+    session = stripe.checkout.Session.create(
+        mode="subscription",
+        customer=customer_id,
+        line_items=[{"price": STRIPE_PRICE_PRO, "quantity": 1}],
+        success_url=f"{req.return_url}?success=1&session_id={{CHECKOUT_SESSION_ID}}",
+        cancel_url=f"{req.return_url}?canceled=1",
+        subscription_data={
+            "trial_period_days": 14,
+            "metadata": {
+                "organization_id": req.organization_id,
+                "user_id": req.user_id,
+            },
+        },
+        metadata={
+            "organization_id": req.organization_id,
+            "user_id": req.user_id,
+        },
+    )
+    return CheckoutResponse(checkout_url=session.url, session_id=session.id)
+
+
+@app.post("/stripe/webhook")
+async def stripe_webhook(request: Request):
+    """Handle Stripe events. Set webhook URL in Stripe dashboard.
+    Local dev: `stripe listen --forward-to localhost:8000/stripe/webhook`
+    """
+    _require_stripe()
+    payload = await request.body()
+    sig = request.headers.get("stripe-signature", "")
+
+    try:
+        event = stripe.Webhook.construct_event(payload, sig, STRIPE_WEBHOOK_SECRET)
+    except (ValueError, stripe.error.SignatureVerificationError) as e:
+        raise HTTPException(status_code=400, detail=f"Invalid webhook: {e}")
+
+    db_url = os.environ.get("DATABASE_URL")
+    if not db_url:
+        return {"received": True, "warning": "DATABASE_URL not set, not syncing"}
+
+    etype = event["type"]
+    data = event["data"]["object"]
+    print(f"[stripe-webhook] {etype}")
+
+    if etype in (
+        "customer.subscription.created",
+        "customer.subscription.updated",
+        "customer.subscription.deleted",
+    ):
+        sub = data
+        org_id = (sub.get("metadata") or {}).get("organization_id")
+        user_id = (sub.get("metadata") or {}).get("user_id")
+
+        # Get the price's nickname to infer tier (default 'pro')
+        tier = "pro"
+        try:
+            price_id = sub["items"]["data"][0]["price"]["id"]
+            if "enterprise" in (sub["items"]["data"][0]["price"].get("nickname") or "").lower():
+                tier = "enterprise"
+            elif price_id != STRIPE_PRICE_PRO:
+                tier = "enterprise"
+        except (KeyError, IndexError):
+            pass
+
+        if etype == "customer.subscription.deleted":
+            status = "canceled"
+        else:
+            status = sub["status"]  # trialing / active / past_due / etc
+
+        if org_id:
+            with psycopg.connect(db_url, autocommit=True) as conn, conn.cursor() as cur:
+                cur.execute(
+                    """
+                    insert into public.subscriptions
+                        (organization_id, stripe_customer_id, stripe_subscription_id,
+                         status, tier, trial_ends_at, current_period_end)
+                    values (%s, %s, %s, %s, %s,
+                            to_timestamp(%s), to_timestamp(%s))
+                    on conflict (organization_id) do update set
+                        stripe_customer_id     = excluded.stripe_customer_id,
+                        stripe_subscription_id = excluded.stripe_subscription_id,
+                        status                 = excluded.status,
+                        tier                   = excluded.tier,
+                        trial_ends_at          = excluded.trial_ends_at,
+                        current_period_end     = excluded.current_period_end,
+                        updated_at             = now()
+                    """,
+                    (
+                        org_id,
+                        sub.get("customer"),
+                        sub.get("id"),
+                        status,
+                        tier,
+                        sub.get("trial_end"),
+                        sub.get("current_period_end"),
+                    ),
+                )
+
+    return {"received": True}
 
 
 @app.post("/predict", response_model=PredictResponse)

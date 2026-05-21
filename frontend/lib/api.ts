@@ -62,3 +62,28 @@ export async function ask(req: AskRequest): Promise<AskResponse> {
   }
   return res.json();
 }
+
+export interface CheckoutRequest {
+  user_id: string;
+  organization_id: string;
+  email: string;
+  return_url: string;
+}
+
+export interface CheckoutResponse {
+  checkout_url: string;
+  session_id: string;
+}
+
+export async function createCheckoutSession(req: CheckoutRequest): Promise<CheckoutResponse> {
+  const res = await fetch(`${API}/checkout/create-session`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(req),
+  });
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`API ${res.status}: ${text}`);
+  }
+  return res.json();
+}

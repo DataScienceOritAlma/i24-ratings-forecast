@@ -64,6 +64,12 @@
 - `backend/prediction_logic.py` — חישוב lag features, slot uncertainty, trend (פורט מ-utils/predict.py בלי תלות ב-Streamlit)
 - `backend/requirements.txt` — FastAPI · uvicorn · sklearn · pandas · psycopg · dotenv
 - `backend/render.yaml` — תצורת פריסה אוטומטית ל-Render.com
+
+### Stripe Subscriptions (שלב 4, 2026-05-21)
+- `backend/main.py` endpoints: `POST /checkout/create-session` (Subscription mode, 14-day trial), `POST /stripe/webhook` (HMAC verified, syncs `subscriptions` table)
+- `frontend/app/account/page.tsx` — קורא subscription status מ-Supabase, מציג Pro/Free, מפעיל Checkout
+- `STRIPE_SETUP.md` — מדריך הקמה (~15 דק'): Test account → product → keys → Stripe CLI → webhook
+- Stripe מותנה ב-3 env vars: `STRIPE_SECRET_KEY` · `STRIPE_PRICE_PRO_MONTHLY` · `STRIPE_WEBHOOK_SECRET`. בלעדיהם — 503 ברור (לא קורס)
 - `backend/README.md` — הרצה מקומית + מדריך פריסה
 - הרצה מקומית: `cd backend && py -3 -m uvicorn main:app --reload`
 - **`migrate_to_supabase.py`** — מעלה תוכניות+שידורים מ-`תוכניות_מעובד.xlsx` ל-Postgres דרך psycopg ישיר. Type-aware: datetime.time, uuid.UUID, NaN→None. דורש `.env` עם DATABASE_URL
