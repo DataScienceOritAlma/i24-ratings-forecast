@@ -1,0 +1,41 @@
+const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+
+export interface PredictRequest {
+  program_name: string;
+  target_date: string;          // YYYY-MM-DD
+  start_time: string;           // HH:MM:SS
+  end_time?: string;
+  scenario?: "routine" | "special_event";
+  status?: string;
+}
+
+export interface PredictResponse {
+  predicted_rating: number;
+  prediction_low: number;
+  prediction_high: number;
+  estimated_households: number;
+  estimated_viewers: number;
+  model: string;
+  confidence_pct: number;
+  uncertainty_source: string;
+  metadata: Record<string, unknown>;
+}
+
+export async function predict(req: PredictRequest): Promise<PredictResponse> {
+  const res = await fetch(`${API}/predict`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(req),
+  });
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`API ${res.status}: ${text}`);
+  }
+  return res.json();
+}
+
+export async function health(): Promise<{ status: string; model: string; history_rows: number }> {
+  const res = await fetch(`${API}/health`);
+  if (!res.ok) throw new Error(`API ${res.status}`);
+  return res.json();
+}

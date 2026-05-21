@@ -50,6 +50,15 @@
 - **`schema.sql`** — DDL להרצה ישירה ב-Supabase SQL Editor (6 טבלאות + indices + RLS policies + triggers, אידמפוטנטי)
 - **`setup_db.py`** — מריץ את `schema.sql` ב-Supabase דרך psycopg (אלטרנטיבה ל-SQL Editor)
 
+### Frontend (Next.js — שלב 3, 2026-05-21)
+- `frontend/app/layout.tsx` — RTL/Hebrew · Heebo font · global metadata
+- `frontend/app/page.tsx` — מסך התחברות/הרשמה (Supabase Auth)
+- `frontend/app/dashboard/page.tsx` — טופס חיזוי + תצוגת תוצאה
+- `frontend/lib/supabase.ts` — Supabase JS client
+- `frontend/lib/api.ts` — קליינט ל-Backend FastAPI
+- `frontend/tailwind.config.ts` — מותג: brand-primary #1E5DB8, brand-accent #FF6B35
+- הרצה: `cd frontend && npm install && npm run dev` → http://localhost:3000
+
 ### Backend (FastAPI ML Service — שלב 2, 2026-05-21)
 - `backend/main.py` — FastAPI app: `/health`, `/predict`, `/docs`. טוען model_saved.joblib + היסטוריה מ-Supabase ב-startup
 - `backend/prediction_logic.py` — חישוב lag features, slot uncertainty, trend (פורט מ-utils/predict.py בלי תלות ב-Streamlit)

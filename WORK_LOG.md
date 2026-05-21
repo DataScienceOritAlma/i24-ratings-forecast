@@ -5,6 +5,38 @@
 
 ---
 
+## 2026-05-21 — שלב 40: **שלב 3 הושלם — Next.js Frontend עם Auth + Dashboard**
+
+שכבת Frontend בנויה. Next.js 15 + TypeScript + Tailwind + Supabase Auth, RTL/עברית, Heebo font, מותג i24. עובר build נקי, 5 דפים סטטיים.
+
+### קבצים שנוצרו (`frontend/`)
+- `package.json` — Next 15.1 · React 19 · TypeScript 5.7 · Tailwind 3.4 · @supabase/supabase-js 2.47
+- `app/layout.tsx` — RTL + Heebo + global metadata
+- `app/page.tsx` — מסך התחברות/הרשמה (Supabase Auth, email/password, toggle signin↔signup, redirect ל-dashboard אם מחובר)
+- `app/dashboard/page.tsx` — טופס חיזוי (שם תוכנית · תאריך · שעות · סטטוס · תרחיש) + תצוגת תוצאה (רייטינג גדול + טווח + בתי-אב + צופים) + יציאה
+- `lib/supabase.ts` — Supabase client (publishable key)
+- `lib/api.ts` — קליינט ל-Backend (`predict()`, `health()`)
+- `tailwind.config.ts` — צבעי מותג (brand-primary #1E5DB8 · brand-accent #FF6B35)
+- `.env.local` — מוטמע עם SUPABASE_URL + PUBLISHABLE_KEY + API_URL=localhost:8000 (לוקאלי, gitignored)
+- `render.yaml` — אין; פריסה דרך Vercel בעתיד (`npx vercel`)
+
+### אימות
+- `npx tsc --noEmit` — אפס שגיאות TypeScript
+- `npx next build` — production build הצליח. Bundle ~165KB First Load JS
+
+### הרצה מקומית
+חלון 1: `cd backend && py -3 -m uvicorn main:app --reload`
+חלון 2: `cd frontend && npm run dev`
+דפדפן: http://localhost:3000
+
+### הבא בתור
+- אורית מבטלת email confirmation ב-Supabase (לדמו) או מאשרת מייל
+- בדיקה מקצה-לקצה: הרשמה → התחברות → חיזוי
+- **שלב 3.5:** GenAI (Claude API — שאלות בעברית טבעית)
+- **שלב 4:** Stripe Subscriptions
+
+---
+
 ## 2026-05-21 — שלב 39: **שלב 2 הושלם — FastAPI Backend עם /predict חי**
 
 שכבת Backend של ארכיטקטורת 3-השכבות בנויה ונבדקה לוקאלית. השירות מתחבר ל-Supabase לטעינת היסטוריה, טוען את `model_saved.joblib`, וחוזה רייטינג עם רווח-ביטחון.
