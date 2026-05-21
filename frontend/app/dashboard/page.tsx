@@ -267,6 +267,27 @@ export default function DashboardPage() {
                     onChange={(e) => setTargetDate(e.target.value)}
                     className="w-full px-3 py-2.5 rounded-xl border border-slate-200 focus:border-brand-primary focus:ring-2 focus:ring-brand-primary/10 focus:outline-none transition"
                   />
+                  <div className="flex gap-1 mt-1.5 flex-wrap">
+                    {[
+                      { label: "היום", days: 0 },
+                      { label: "מחר", days: 1 },
+                      { label: "שבוע", days: 7 },
+                      { label: "חודש", days: 30 },
+                    ].map((s) => (
+                      <button
+                        key={s.label}
+                        type="button"
+                        onClick={() => {
+                          const d = new Date();
+                          d.setDate(d.getDate() + s.days);
+                          setTargetDate(d.toISOString().slice(0, 10));
+                        }}
+                        className="text-xs px-2 py-0.5 rounded-full bg-slate-100 hover:bg-brand-primary hover:text-white transition text-muted"
+                      >
+                        {s.label}
+                      </button>
+                    ))}
+                  </div>
                 </div>
                 <div>
                   <label className="block text-sm font-bold mb-1 text-ink">סטטוס</label>
