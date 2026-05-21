@@ -5,6 +5,26 @@
 
 ---
 
+## 2026-05-21 — שלב 36: הרחבת ספק (GenAI + DL) + SCHEMA.md לשכבת Data
+
+לפי בקשת המשתמשת "לא לפספס כלום" — שולבה בספק תכנית-המנטור של זכר (מפגשים 4-6): שכבת GenAI כפיצ'ר MVP, Deep Learning כ-v2, monitoring/versions מפורש. הרוד-מאפ הוארך ל-10-12 שבועות במקום 6-8.
+
+### עדכוני PRODUCT_SPEC.md
+- ✅ סטאפ-פי חד-פעמי ל-Enterprise (~₪5-10K)
+- ✅ פיצ'ר MVP חדש: שכבת GenAI (Claude API — שאלות בעברית טבעית + הסברי תחזיות)
+- ✅ רוד-מאפ הורחב: שלב 3.5 (GenAI), שלב 7 (DL/LLMs/multi-channel), שלב ongoing (דאטא חודשי)
+- ✅ Monitoring/DevOps עמודה ייעודית (Sentry · Plausible · גרסאות מודל · גיבויים)
+
+### קובץ חדש: `SCHEMA.md`
+תכנון מסד הנתונים המלא לשכבת Data (Phase 1.0):
+- 6 טבלאות: `organizations`, `profiles`, `subscriptions`, `programs`, `broadcasts`, `predictions`
+- מדיניות RLS פר-טבלה (`programs`/`broadcasts` ציבורי לקריאה; `predictions` פר-ארגון)
+- אינדקסים לביצועים
+- תכנית הגירה xlsx → Postgres
+- צעד בא: אורית פותחת חשבון Supabase, מעבירה 2 keys, ואני יוצר את schema.sql + migration script
+
+---
+
 ## 2026-05-20 — שלב 35: הסבת הפרוייקט ל-SaaS אמיתי — PRODUCT_SPEC.md v1.0 ננעל
 
 המשתמשת הציבה אותי כמנטור טכני קצה-לקצה והגדירה את המטרה: אפליקציה אמיתית עם 3 שכבות (Frontend/Backend/Data) שעובדת מהר, בטוח, ושאפשר לגבות עליה כסף. נכתב ספק מוצר מקיף ונפרס רוד-מאפ של 6-8 שבועות.

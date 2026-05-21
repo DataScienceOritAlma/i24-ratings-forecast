@@ -45,7 +45,8 @@
 - `DEPLOY.md` — הוראות פריסה ל-GitHub + Streamlit Cloud
 - `MENTOR_PREP.md` — הכנה למפגשי מנטור 3-6 + שאלות לשאול
 - `PRODUCT_VISION.md` — חזון מוצר B2B + GitHub strategy + דאטה נוסף
-- **`PRODUCT_SPEC.md`** — **North Star v1.0 (2026-05-20):** ספק מוצר מפורט — לקוח-יעד (סוכנויות → ערוצים), תמחור Trial+Pro+Enterprise, MVP, ארכיטקטורת 3-שכבות, רוד-מאפ 6-8 שבועות, חוסמים (i24 + עוסק)
+- **`PRODUCT_SPEC.md`** — **North Star v1.0 (2026-05-20):** ספק מוצר מפורט — לקוח-יעד (סוכנויות → ערוצים), תמחור Trial+Pro+Enterprise (+ setup fee), MVP כולל GenAI, ארכיטקטורת 3-שכבות, רוד-מאפ 10-12 שבועות, חוסמים (i24 פתוח · עוסק ✅)
+- **`SCHEMA.md`** — תכנון שכבת Data: 6 טבלאות (organizations, profiles, subscriptions, programs, broadcasts, predictions), RLS, indices, תכנית הגירה xlsx→Postgres
 - `GLOSSARY.md` — **מילון מושגים מקיף** — DS/ML + אלגוריתמים, מוסבר בשלוש רמות (ילד/טכני/פרוייקט)
 - `DATA_DEEP_DIVE.md` + `sample_30_rows.xlsx` — ניתוח ידני של 30 שורות מ-test, השוואת 6 מודלים, זיהוי דפוסים
 - `ALGORITHMS_VISUAL.md` + `viz/01-08*.png` — 8 תרשימים שמסבירים אלגוריתמים על הדאטה האמיתי
