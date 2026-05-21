@@ -5,6 +5,25 @@
 
 ---
 
+## 2026-05-21 — שלב 37: שלב 1.0 — schema.sql + migration script מוכנים
+
+הספק והסכמה ננעלו. נבנו 3 הקבצים שמיישמים את שכבת Data בפועל. אורית פתחה פרויקט Supabase (`i24-ratings-forecast`, Frankfurt, free tier) ומסרה את ה-publishable key. הצעד הבא: היא מריצה את הסקריפטים.
+
+### קבצים שנוצרו
+- **`schema.sql`** — DDL מלא: 6 טבלאות + indices + helper functions + 2 triggers + 10 RLS policies. אידמפוטנטי. רץ ב-Supabase SQL Editor.
+- **`migrate_to_supabase.py`** — מעלה 10K שורות מ-xlsx ל-Postgres (programs + broadcasts) דרך SQLAlchemy+psycopg. אימוץ עמודות לפי שם (לפי [[reference-processed-xlsx-columns]]).
+- **`.env.example`** — תבנית למשתני סביבה. Project URL ו-publishable key כבר מוטמעים. secrets לא.
+- **`.gitignore`** — נוסף `.env*` לחסימת secrets.
+
+### צעדים בצד המשתמשת (לפני המפגש הבא)
+1. אופציונלי: לאפס DB password ב-Settings → Database
+2. ליצור `.env` מ-`.env.example`, למלא `SUPABASE_SECRET_KEY` ו-`DATABASE_URL` עם הסיסמה
+3. להריץ `schema.sql` ב-Supabase SQL Editor
+4. להריץ `py -3 migrate_to_supabase.py` בטרמינל
+5. לאמת ב-Supabase → Table Editor: 179 programs, 10,039 broadcasts
+
+---
+
 ## 2026-05-21 — שלב 36: הרחבת ספק (GenAI + DL) + SCHEMA.md לשכבת Data
 
 לפי בקשת המשתמשת "לא לפספס כלום" — שולבה בספק תכנית-המנטור של זכר (מפגשים 4-6): שכבת GenAI כפיצ'ר MVP, Deep Learning כ-v2, monitoring/versions מפורש. הרוד-מאפ הוארך ל-10-12 שבועות במקום 6-8.

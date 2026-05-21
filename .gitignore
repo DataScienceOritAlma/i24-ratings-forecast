@@ -26,6 +26,11 @@ desktop.ini
 # Streamlit secrets (NEVER commit!)
 .streamlit/secrets.toml
 
+# Supabase / env secrets (NEVER commit!)
+.env
+.env.local
+.env.*.local
+
 # Logs / tmp
 *.log
 tmp/
