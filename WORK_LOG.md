@@ -5,6 +5,29 @@
 
 ---
 
+## 2026-05-21 — שלב 38: **שלב 1 הושלם — Supabase חי עם 9,311 שידורים** 🎉
+
+הסכמה רצה. המיגרציה הצליחה. שכבת Data של ארכיטקטורת 3-השכבות **חיה בענן**.
+
+### תוצאות
+- ✓ 6 טבלאות נוצרו (`organizations`, `profiles`, `subscriptions`, `programs`, `broadcasts`, `predictions`)
+- ✓ RLS פעיל פר-טבלה לפי [[SCHEMA.md]]
+- ✓ 179 programs · 9,311 broadcasts הועלו
+- ✓ טווח: 2025-05-25 → 2026-04-18, ממוצע רייטינג 0.452 (תואם 0.441 הצפוי)
+- 728 שורות נשמטו (כפילויות UNIQUE על broadcast_date+start_time+program_id, או חסרים בקריטיים)
+
+### שינויים בקבצים
+- **`setup_db.py`** (חדש) — מריץ את `schema.sql` דרך psycopg (ללא הרצה ידנית ב-SQL Editor)
+- **`migrate_to_supabase.py`** — שוכתב מ-SQLAlchemy ל-psycopg ישיר (פתרון לבעיות UUID/TIME casting). Type-aware: datetime.time, uuid.UUID, NaN→None
+- **`.env`** (לוקאלי, gitignored) — נוצר עם DATABASE_URL של Session Pooler (`aws-1-eu-central-1`, IPv4-תקין מישראל)
+
+### הבא בתור
+- **שלב 1.5:** Auth — להוסיף ראש-משתמש (signup/signin) שיוצר ארגון אוטומטית
+- **שלב 2:** FastAPI על Render עם `model_saved.joblib` (חיזוי live)
+- **שלב 3:** Next.js — frontend אמיתי
+
+---
+
 ## 2026-05-21 — שלב 37: שלב 1.0 — schema.sql + migration script מוכנים
 
 הספק והסכמה ננעלו. נבנו 3 הקבצים שמיישמים את שכבת Data בפועל. אורית פתחה פרויקט Supabase (`i24-ratings-forecast`, Frankfurt, free tier) ומסרה את ה-publishable key. הצעד הבא: היא מריצה את הסקריפטים.

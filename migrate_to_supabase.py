@@ -2,201 +2,253 @@
 """
 migrate_to_supabase.py
 ----------------------
-מעלה את `תוכניות_מעובד.xlsx` ל-Supabase Postgres.
+מעלה את `תוכניות_מעובד.xlsx` ל-Supabase Postgres דרך psycopg ישיר.
 
-הרצה ראשונה:
-    py -3 -m pip install pandas openpyxl sqlalchemy "psycopg[binary]" python-dotenv
+דרישות:
+    py -3 -m pip install pandas openpyxl "psycopg[binary]" python-dotenv
+
+הרצה:
     py -3 migrate_to_supabase.py
 
-דרישות מקדימות:
-    1. רצת קודם את `schema.sql` ב-Supabase SQL Editor (יצרת את 6 הטבלאות)
-    2. יש לך `.env` בתיקייה הזאת עם DATABASE_URL מלא
-    3. הקובץ `תוכניות_מעובד.xlsx` קיים בתיקייה (10,039 שורות)
-
 מה הסקריפט עושה:
-    1. טוען את ה-xlsx (פעם אחת)
-    2. מוצא 179 תוכניות ייחודיות → מעלה ל-`programs`
-    3. מעבד 10,039 שידורים → מעלה ל-`broadcasts` עם FK ל-programs
+    1. טוען את ה-xlsx
+    2. מעלה 179 תוכניות → `programs`
+    3. מעלה 10K שידורים → `broadcasts` עם FK ל-programs
     4. מאמת ספירות
 
-אידמפוטנטי: אם רצת פעם אחת ואת רצה שוב — יזרוק שגיאת UNIQUE.
-לניקוי לפני הרצה חוזרת: `TRUNCATE broadcasts, programs CASCADE;` ב-SQL Editor.
+אידמפוטנטי: אם הטבלאות לא ריקות — הסקריפט יזרוק אזהרה ויעצור.
+לאיפוס: TRUNCATE broadcasts, programs CASCADE; ב-Supabase SQL Editor.
 """
 import io
 import os
-import sys
 import re
+import sys
+import datetime as dt
 from pathlib import Path
 
 import pandas as pd
-from sqlalchemy import create_engine, text
+import psycopg
+from psycopg.types.json import Jsonb  # noqa: F401  (loads psycopg types)
 
 sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
 
-# ---- Load env ----
 try:
     from dotenv import load_dotenv
     load_dotenv()
 except ImportError:
-    print("WARN: python-dotenv not installed. Install: pip install python-dotenv")
+    pass
 
 DB_URL = os.environ.get('DATABASE_URL')
 if not DB_URL or 'REPLACE_ME' in DB_URL or 'YOUR_DB_PASSWORD' in DB_URL:
-    sys.exit("ERROR: DATABASE_URL לא מוגדר נכון ב-.env. ראה .env.example.")
-
-# Force psycopg3 driver (modern, maintained)
-if DB_URL.startswith('postgresql://'):
-    DB_URL = DB_URL.replace('postgresql://', 'postgresql+psycopg://', 1)
+    sys.exit("ERROR: DATABASE_URL לא מוגדר נכון ב-.env")
 
 ROOT = Path(__file__).parent
 SRC = ROOT / "תוכניות_מעובד.xlsx"
 if not SRC.exists():
     sys.exit(f"ERROR: {SRC.name} לא נמצא")
 
-print(f"→ Connecting to Supabase Postgres...")
-engine = create_engine(DB_URL, pool_pre_ping=True)
 
-# סנטיטי-צ'ק לחיבור
-with engine.connect() as conn:
-    n = conn.execute(text("select count(*) from public.programs")).scalar()
-    if n > 0:
-        sys.exit(f"⚠️  כבר יש {n} programs בטבלה. לניקוי: TRUNCATE broadcasts, programs CASCADE;")
+# ---------- helpers ----------
+def parse_time(v):
+    """'06:11:29' → datetime.time(6, 11, 29). Handles 24+ hours."""
+    if v is None or (isinstance(v, float) and pd.isna(v)):
+        return None
+    s = str(v).strip()
+    m = re.match(r'(\d+):(\d+):(\d+)', s)
+    if not m:
+        return None
+    h = int(m[1]) % 24  # 24:00 → 00:00
+    return dt.time(h, int(m[2]), int(m[3]))
 
-# ---- Load xlsx ----
-print(f"→ Loading {SRC.name}...")
-df = pd.read_excel(SRC)
-print(f"   loaded {len(df):,} rows × {df.shape[1]} columns")
 
-# מיפוי עמודות לפי שם (לא לפי אינדקס — ראה memory: עמודות תוכניות_מעובד.xlsx)
-def col(name):
-    for c in df.columns:
-        if c == name:
-            return c
-    raise KeyError(f"column not found: {name}")
-
-C_NAME       = col('שם תוכנית')
-C_DAY        = col('יום שידור')
-C_DATE       = col('תאריך שידור')
-C_START      = col('שעת התחלה')
-C_END        = col('שעת סיום')
-C_DUR        = col('משך תוכנית')
-C_RATING     = col('רייטינג')
-C_RECEPTION  = col('reception_pct')
-C_SHARE      = col('נתח')
-C_VIEWERS    = col('צופים 4+')
-C_STATUS     = col('סטטוס תוכנית')
-C_SOURCE     = col('שם תוכנית_מקור')
-C_DAYPART    = col('חלקי-יום')
-C_EVENT      = col('אירוע_מיוחד')
-C_HUT        = col('HUT proxy')
-C_ISRERUN    = col('is_rerun')
-
-# ---- helpers ----
 def parse_duration_min(v):
     """'00:11:29' → 11.48 דקות"""
     if pd.isna(v):
         return None
-    s = str(v)
-    m = re.match(r'(\d+):(\d+):(\d+)', s)
+    m = re.match(r'(\d+):(\d+):(\d+)', str(v))
     if not m:
         return None
-    h, mi, se = int(m[1]), int(m[2]), int(m[3])
-    return round(h * 60 + mi + se / 60, 2)
+    return round(int(m[1]) * 60 + int(m[2]) + int(m[3]) / 60, 2)
 
-def clean_time(v):
-    """דרישות הטבלה: HH:MM:SS"""
+
+def parse_date(v):
     if pd.isna(v):
         return None
-    s = str(v)
-    if re.match(r'\d+:\d+:\d+', s):
-        return s
-    return None
+    d = pd.to_datetime(v, errors='coerce')
+    return None if pd.isna(d) else d.date()
 
-# ---- 1. programs ----
+
+def clean(v):
+    """NaN/None → None לדאטא־בייס."""
+    if v is None:
+        return None
+    if isinstance(v, float) and pd.isna(v):
+        return None
+    return v
+
+
+# ---------- load ----------
+print(f"→ מתחבר ל-Supabase Postgres...")
+conn = psycopg.connect(DB_URL)
+print(f"✓ מחובר")
+
+# בדיקה: האם כבר יש דאטא?
+with conn.cursor() as cur:
+    cur.execute("select count(*) from public.programs")
+    n_existing = cur.fetchone()[0]
+if n_existing > 0:
+    conn.close()
+    sys.exit(f"⚠️  כבר יש {n_existing} programs. לאיפוס: TRUNCATE broadcasts, programs CASCADE;")
+
+print(f"→ טוען {SRC.name}...")
+df = pd.read_excel(SRC)
+print(f"   {len(df):,} שורות × {df.shape[1]} עמודות")
+
+
+# ---------- column mapping (by name, not index) ----------
+def col(name):
+    if name not in df.columns:
+        raise KeyError(f"missing column: {name}")
+    return name
+
+C_NAME      = col('שם תוכנית')
+C_DAY       = col('יום שידור')
+C_DATE      = col('תאריך שידור')
+C_START     = col('שעת התחלה')
+C_END       = col('שעת סיום')
+C_DUR       = col('משך תוכנית')
+C_RATING    = col('רייטינג')
+C_RECEPTION = col('reception_pct')
+C_SHARE     = col('נתח')
+C_VIEWERS   = col('צופים 4+')
+C_STATUS    = col('סטטוס תוכנית')
+C_SOURCE    = col('שם תוכנית_מקור')
+C_DAYPART   = col('חלקי-יום')
+C_EVENT     = col('אירוע_מיוחד')
+C_HUT       = col('HUT proxy')
+C_ISRERUN   = col('is_rerun')
+
+
+# ---------- 1. programs ----------
 print("\n1️⃣  Programs...")
-programs = (
+prog_df = (
     df[[C_NAME, C_SOURCE]]
     .dropna(subset=[C_NAME])
     .groupby(C_NAME, as_index=False)
     .first()
-    .rename(columns={C_NAME: 'name', C_SOURCE: 'source_name'})
 )
 
-# סטטיסטיקות פר תוכנית
-stats = (
-    df.groupby(C_NAME).agg(
-        n_broadcasts=(C_NAME, 'size'),
-        first_aired=(C_DATE, 'min'),
-        last_aired=(C_DATE, 'max'),
-    ).reset_index().rename(columns={C_NAME: 'name'})
-)
-stats['first_aired'] = pd.to_datetime(stats['first_aired'], errors='coerce').dt.date
-stats['last_aired'] = pd.to_datetime(stats['last_aired'], errors='coerce').dt.date
+# סטטיסטיקות
+stats = df.groupby(C_NAME).agg(
+    n_broadcasts=(C_NAME, 'size'),
+    first_aired=(C_DATE, 'min'),
+    last_aired=(C_DATE, 'max'),
+).reset_index()
 
-programs = programs.merge(stats, on='name', how='left')
+prog_df = prog_df.merge(stats, on=C_NAME, how='left')
 
-programs.to_sql('programs', engine, schema='public',
-                if_exists='append', index=False, method='multi', chunksize=200)
-print(f"   ✓ {len(programs)} programs inserted")
+records = []
+for _, r in prog_df.iterrows():
+    records.append((
+        clean(r[C_NAME]),
+        clean(r[C_SOURCE]),
+        parse_date(r['first_aired']),
+        parse_date(r['last_aired']),
+        int(r['n_broadcasts']) if pd.notna(r['n_broadcasts']) else 0,
+    ))
 
-# ---- lookup IDs ----
-with engine.connect() as conn:
-    id_map = pd.read_sql(
-        "select id, name from public.programs", conn
-    ).set_index('name')['id'].to_dict()
+with conn.cursor() as cur:
+    cur.executemany(
+        "insert into public.programs (name, source_name, first_aired, last_aired, n_broadcasts) "
+        "values (%s, %s, %s, %s, %s)",
+        records,
+    )
+conn.commit()
+print(f"   ✓ {len(records)} programs inserted")
 
-# ---- 2. broadcasts ----
+
+# ---------- lookup IDs ----------
+with conn.cursor() as cur:
+    cur.execute("select id, name from public.programs")
+    id_map = {name: pid for pid, name in cur.fetchall()}
+
+
+# ---------- 2. broadcasts ----------
 print("\n2️⃣  Broadcasts...")
 
-broadcasts = pd.DataFrame({
-    'program_id':     df[C_NAME].map(id_map),
-    'broadcast_date': pd.to_datetime(df[C_DATE], errors='coerce').dt.date,
-    'start_time':     df[C_START].apply(clean_time),
-    'end_time':       df[C_END].apply(clean_time),
-    'duration_min':   df[C_DUR].apply(parse_duration_min),
-    'day_of_week':    df[C_DAY],
-    'daypart':        df[C_DAYPART],
-    'status':         df[C_STATUS],
-    'event':          df[C_EVENT],
-    'is_rerun':       df[C_ISRERUN].fillna(False).astype(bool),
-    'actual_rating':  pd.to_numeric(df[C_RATING], errors='coerce'),
-    'share':          pd.to_numeric(df[C_SHARE], errors='coerce'),
-    'viewers_4plus':  pd.to_numeric(df[C_VIEWERS], errors='coerce').astype('Int64'),
-    'hut_proxy':      pd.to_numeric(df[C_HUT], errors='coerce'),
-    'reception_pct':  pd.to_numeric(df[C_RECEPTION], errors='coerce'),
-})
+records = []
+dropped = 0
+seen = set()  # למניעת כפילויות UNIQUE
+for _, r in df.iterrows():
+    prog_id = id_map.get(r[C_NAME])
+    d = parse_date(r[C_DATE])
+    t = parse_time(r[C_START])
+    if prog_id is None or d is None or t is None:
+        dropped += 1
+        continue
 
-# הסרת שורות חסרות-קריטית
-before = len(broadcasts)
-broadcasts = broadcasts.dropna(subset=['program_id', 'broadcast_date', 'start_time'])
-dropped = before - len(broadcasts)
+    key = (d, t, prog_id)
+    if key in seen:
+        dropped += 1
+        continue
+    seen.add(key)
+
+    rating = pd.to_numeric(r[C_RATING], errors='coerce')
+    share  = pd.to_numeric(r[C_SHARE], errors='coerce')
+    view   = pd.to_numeric(r[C_VIEWERS], errors='coerce')
+    hut    = pd.to_numeric(r[C_HUT], errors='coerce')
+    rec    = pd.to_numeric(r[C_RECEPTION], errors='coerce')
+
+    records.append((
+        prog_id,                              # program_id (uuid)
+        d,                                    # broadcast_date
+        t,                                    # start_time
+        parse_time(r[C_END]),                 # end_time
+        parse_duration_min(r[C_DUR]),         # duration_min
+        clean(r[C_DAY]),                      # day_of_week
+        clean(r[C_DAYPART]),                  # daypart
+        clean(r[C_STATUS]),                   # status
+        clean(r[C_EVENT]),                    # event
+        bool(r[C_ISRERUN]) if pd.notna(r[C_ISRERUN]) else False,
+        float(rating) if pd.notna(rating) else None,
+        float(share) if pd.notna(share) else None,
+        int(round(view)) if pd.notna(view) else None,
+        float(hut) if pd.notna(hut) else None,
+        float(rec) if pd.notna(rec) else None,
+    ))
+
 if dropped:
-    print(f"   ⚠️  הוסרו {dropped} שורות חסרות (program/date/time)")
+    print(f"   ⚠️  הוסרו {dropped} שורות (חסרות / כפילויות)")
 
-# duplicate guard (אנחנו לא רוצים לפול על UNIQUE constraint)
-broadcasts = broadcasts.drop_duplicates(
-    subset=['broadcast_date', 'start_time', 'program_id'], keep='first'
-)
+with conn.cursor() as cur:
+    cur.executemany("""
+        insert into public.broadcasts (
+            program_id, broadcast_date, start_time, end_time, duration_min,
+            day_of_week, daypart, status, event, is_rerun,
+            actual_rating, share, viewers_4plus, hut_proxy, reception_pct
+        ) values (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+    """, records)
+conn.commit()
+print(f"   ✓ {len(records):,} broadcasts inserted")
 
-broadcasts.to_sql('broadcasts', engine, schema='public',
-                  if_exists='append', index=False, method='multi', chunksize=500)
-print(f"   ✓ {len(broadcasts):,} broadcasts inserted")
 
-# ---- 3. verify ----
-print("\n3️⃣  Verification...")
-with engine.connect() as conn:
-    n_progs = conn.execute(text("select count(*) from public.programs")).scalar()
-    n_bcst = conn.execute(text("select count(*) from public.broadcasts")).scalar()
-    d_min, d_max = conn.execute(text(
-        "select min(broadcast_date), max(broadcast_date) from public.broadcasts"
-    )).first()
-    avg_rating = conn.execute(text(
-        "select round(avg(actual_rating)::numeric, 3) from public.broadcasts"
-    )).scalar()
+# ---------- 3. verify ----------
+print("\n3️⃣  אימות...")
+with conn.cursor() as cur:
+    cur.execute("select count(*) from public.programs")
+    n_p = cur.fetchone()[0]
+    cur.execute("select count(*) from public.broadcasts")
+    n_b = cur.fetchone()[0]
+    cur.execute(
+        "select min(broadcast_date), max(broadcast_date), "
+        "round(avg(actual_rating)::numeric, 3) from public.broadcasts"
+    )
+    d_min, d_max, avg = cur.fetchone()
 
-print(f"   programs:     {n_progs}")
-print(f"   broadcasts:   {n_bcst:,}")
-print(f"   date range:   {d_min} → {d_max}")
-print(f"   avg rating:   {avg_rating}  (צפוי ~0.441)")
+print(f"   programs:   {n_p}")
+print(f"   broadcasts: {n_b:,}")
+print(f"   date range: {d_min} → {d_max}")
+print(f"   avg rating: {avg}   (צפוי ~0.441)")
 
+conn.close()
 print("\n✅ Migration complete! בדקי ב-Supabase → Table Editor.")
