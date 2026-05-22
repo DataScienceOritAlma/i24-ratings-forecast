@@ -5,6 +5,79 @@
 
 ---
 
+## 2026-05-22 — שלב 51: Frontend חי ב-Vercel — Stack מלא בענן
+
+### מה נעשה
+- נוצר Vercel account (Hobby plan, חינמי) → Team `Orit's projects`
+- חובר GitHub App ל-`DataScienceOritAlma/i24-ratings-forecast` (Read-only)
+- Import Project: Application Preset = Next.js, Root Directory = `frontend`
+- 3 env vars נוספו (Production + Preview):
+  - `NEXT_PUBLIC_SUPABASE_URL` = `https://bfnmaogcxdgnaxwjdtny.supabase.co`
+  - `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` = `sb_publishable_...`
+  - `NEXT_PUBLIC_API_URL` = `https://i24-ratings-api.onrender.com`
+
+### תקלת ביניים
+ה-Values שהודבקו הכילו `\n` נסתר בסוף (פורמט-העתקה מההודעה) — Vercel הציג ⚠️ והערכים בפועל היו שבורים. תיקון: End → Backspace בסוף כל שדה.
+
+### URL בענן
+**https://i24-ratings-forecast.vercel.app** — דף הנחיתה עולה, RTL נכון, title Hebrew בסדר.
+
+### Stack מלא חי באוויר — סיום היום
+| Layer | URL |
+|---|---|
+| Frontend | https://i24-ratings-forecast.vercel.app |
+| Backend  | https://i24-ratings-api.onrender.com |
+| Database | Supabase (eu-central-1, 9,311 broadcasts) |
+| Streamlit (legacy) | https://i24-ratings-orit.streamlit.app |
+
+חוסמים פתוחים (לא דחופים):
+- **Stripe** — קוד מוכן (`/checkout/create-session`, `/stripe/webhook`), ממתין ל-API keys
+- **i24 approval** — חיצוני
+
+---
+
+## 2026-05-22 — שלב 50: Backend חי ב-Render
+
+### מה נעשה
+- נוצר Web Service ב-Render (DataScienceOritAlma/i24-ratings-forecast → branch main)
+- Build/Start commands: `pip install -r backend/requirements.txt` · `cd backend && uvicorn main:app --host 0.0.0.0 --port $PORT`
+- env vars: `DATABASE_URL` (Session Pooler) + `PYTHON_VERSION=3.11`
+- Region: Frankfurt (אותו כמו Supabase) · Plan: Free (512MB · נרדם אחרי 15 דק')
+
+### תקלת ביניים
+דיפלוי ראשון התחיל עם Python 3.14.3 (ברירת מחדל של Render). pip ניסה לבנות numpy/scikit-learn מ-source — בוטל וגם הוספה PYTHON_VERSION=3.11 כ-env var. הדיפלוי השני (cp311 wheels) הסתיים תוך ~4 דקות.
+
+### אימות בענן
+- `GET https://i24-ratings-api.onrender.com/health` → `history_rows: 9311` ✅
+- `POST /predict` עם "קבינט שישי" 2026-06-05 21:00 → רייטינג 1.516 (טווח 1.18-1.85), 87,152 צופים מוערכים — זהה לתוצאה המקומית
+
+### חוסם הוסר
+Frontend (Next.js) יכול עכשיו להתחבר ל-`https://i24-ratings-api.onrender.com` במקום ל-localhost. הצעד הבא: Vercel.
+
+---
+
+## 2026-05-22 — שלב 49: Supabase חי — סכמה + מיגרציית דאטה
+
+### מה נעשה
+- אופסה סיסמת DB דרך Supabase Dashboard → Database → Settings
+- עודכן `DATABASE_URL` ב-`.env` עם Session Pooler (IPv4-compatible, מתאים לרשת ביתית בישראל)
+- הורץ `setup_db.py` → 6 טבלאות + RLS + indices (אידמפוטנטי, נוצר תקין)
+- הורץ `migrate_to_supabase.py` → 179 תוכניות + 9,311 שידורים (728 הוסרו: שורות עם תאריך/שעה חסרים — תקין)
+
+### אימות
+- `programs`: 179
+- `broadcasts`: 9,311
+- טווח תאריכים: 2025-05-25 → 2026-04-18
+- ר' ממוצע: 0.452 (צפוי ~0.441 בנתוני המקור)
+
+### חוסם הוסר
+זה היה החוסם של Render/Vercel/Stripe. Backend FastAPI יכול עכשיו להתחבר לדאטה אמיתית במקום למודל-pickle בלבד. כל השאר מוכן בקוד; מחכה לפעולה חיצונית בלבד.
+
+### עוד באותו יום
+- המרת `MODEL_FAQ.md` ל-Word דרך `eda_to_docx.py` (הוכלל לקבל CLI args). פלט: `MODEL_FAQ.docx` (40KB)
+
+---
+
 ## 2026-05-22 — שלב 48: ליטוש Analytics + שלד SEO
 
 Analytics קיבל ויזואליזציה אמיתית במקום מספרים שטוחים; הוספתי SEO בסיסי לקראת פריסה.
