@@ -32,6 +32,7 @@ from prediction_logic import (  # noqa: E402
     compute_recent_trend,
     compute_slot_uncertainty,
     date_to_weekday_he,
+    estimate_reception_pct,
     rating_to_viewers,
 )
 
@@ -95,6 +96,11 @@ def _load_history() -> pd.DataFrame:
     for ch in ["כאן 11", "קשת 12", "רשת 13", "עכשיו 14"]:
         if ch not in df.columns:
             df[ch] = 0.0
+    # Derive adjusted rating from raw + reception_pct (the model trains on this)
+    if "רייטינג מותאם" not in df.columns and "רייטינג" in df.columns and "reception_pct" in df.columns:
+        rp = pd.to_numeric(df["reception_pct"], errors="coerce")
+        rr = pd.to_numeric(df["רייטינג"], errors="coerce")
+        df["רייטינג מותאם"] = (rr / rp).where(rp > 0)
     print(f"[startup] ✓ history rows: {len(df):,}")
     return df
 
@@ -230,12 +236,15 @@ class PredictRequest(BaseModel):
 
 
 class PredictResponse(BaseModel):
-    predicted_rating: float
-    prediction_low: float
-    prediction_high: float
+    predicted_rating: float          # adjusted rating (panel-corrected, business KPI)
+    prediction_low: float            # 80% CI lower bound (adjusted scale)
+    prediction_high: float           # 80% CI upper bound (adjusted scale)
+    predicted_rating_raw: float      # derived: adjusted × estimated reception_pct
+    reception_pct_used: float        # extrapolated panel reception for target_date
     estimated_households: int
     estimated_viewers: int
     model: str
+    target_kind: str = "adjusted"
     confidence_pct: int = 80
     uncertainty_source: str
     metadata: dict
@@ -341,12 +350,13 @@ def ask(req: AskRequest):
     answer = (
         f"📊 תחזית לתוכנית **{program}** ב{weekday_he_name} {target.strftime('%d/%m/%Y')} "
         f"({scenario_he}):\n\n"
-        f"רייטינג צפוי: **{pred.predicted_rating:.2f}**\n"
+        f"רייטינג מותאם: **{pred.predicted_rating:.2f}**  "
+        f"(גולמי משוער: {pred.predicted_rating_raw:.2f})\n"
         f"טווח 80%: {pred.prediction_low:.2f} – {pred.prediction_high:.2f}\n"
         f"בתי-אב מוערכים: {pred.estimated_households:,}\n"
         f"צופים מוערכים: {pred.estimated_viewers:,}\n\n"
         f"מקור אי-הוודאות: {pred.uncertainty_source}. "
-        f"המודל: {pred.model} (MAE היסטורי 0.263)."
+        f"המודל: {pred.model}."
     )
 
     return AskResponse(
@@ -525,15 +535,23 @@ def predict(req: PredictRequest):
 
     weekday_he = date_to_weekday_he(req.target_date)
     uncert = compute_slot_uncertainty(HISTORY_DF, req.program_name, h, weekday_he)
-    viewers = rating_to_viewers(pred)
+
+    # Project back to "raw rating" scale for households/viewers calibration.
+    # The viewer-conversion ratio (hh_per_point=25000) was calibrated on raw, panel-measured ratings.
+    reception_pct = estimate_reception_pct(req.target_date)
+    pred_raw = pred * reception_pct
+    viewers = rating_to_viewers(pred_raw)
 
     return PredictResponse(
-        predicted_rating=round(pred, 3),
+        predicted_rating=round(pred, 3),                       # adjusted (model target)
         prediction_low=round(max(0, pred - uncert["p80_half_width"]), 3),
         prediction_high=round(pred + uncert["p80_half_width"], 3),
+        predicted_rating_raw=round(pred_raw, 3),               # derived raw
+        reception_pct_used=reception_pct,
         estimated_households=viewers["households"],
         estimated_viewers=viewers["viewers"],
         model=MODEL_NAME,
+        target_kind=_MODEL_OBJ.get("target_kind", "adjusted"),
         confidence_pct=80,
         uncertainty_source=uncert["source"],
         metadata={

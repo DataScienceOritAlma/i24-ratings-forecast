@@ -27,13 +27,20 @@ def date_to_weekday_he(date) -> str:
 
 
 def estimate_reception_pct(date) -> float:
+    """Linear extrapolation of panel reception rate.
+
+    Observed range: 0.65 (May 2025) → 0.90 (April 2026) — about +0.023/month.
+    For future dates: continue the same slope, capped at 0.95.
+    """
     d = pd.to_datetime(date)
     start = pd.Timestamp("2025-05-01")
-    end = pd.Timestamp("2026-04-30")
-    if d <= start: return 0.65
-    if d >= end:   return 0.90
-    frac = (d - start).days / (end - start).days
-    return round(0.65 + 0.25 * frac, 3)
+    end   = pd.Timestamp("2026-04-30")
+    if d <= start:
+        return 0.65
+    days_per_unit = (end - start).days
+    frac = (d - start).days / days_per_unit
+    value = 0.65 + 0.25 * frac  # continues past end too
+    return round(min(value, 0.95), 3)
 
 
 def compute_recent_trend(history_df: pd.DataFrame, program_name: str,
@@ -42,7 +49,7 @@ def compute_recent_trend(history_df: pd.DataFrame, program_name: str,
     if len(h) < 5:
         h = history_df.copy()
     h["month"] = pd.to_datetime(h["תאריך שידור"]).dt.to_period("M")
-    monthly = h.groupby("month")["רייטינג"].mean().tail(lookback_months + 1)
+    monthly = h.groupby("month")["רייטינג מותאם"].mean().tail(lookback_months + 1)
     if len(monthly) < 3 or monthly.mean() <= 0:
         return 0.0
     slope = np.polyfit(np.arange(len(monthly)), monthly.values, 1)[0]
@@ -57,14 +64,14 @@ def compute_slot_uncertainty(history_df: pd.DataFrame, program_name: str,
         (history_df["יום שידור"] == weekday_he)
     ]
     if len(h_ps) >= 5:
-        std, n, src = float(h_ps["רייטינג"].std()), len(h_ps), "תוכנית × רצועה"
+        std, n, src = float(h_ps["רייטינג מותאם"].std()), len(h_ps), "תוכנית × רצועה"
     else:
         h_s = history_df[
             (history_df["שעת התחלה_שעה"] == hour) &
             (history_df["יום שידור"] == weekday_he)
         ]
         if len(h_s) >= 10:
-            std, n, src = float(h_s["רייטינג"].std()), len(h_s), "רצועה"
+            std, n, src = float(h_s["רייטינג מותאם"].std()), len(h_s), "רצועה"
         else:
             std, n, src = GLOBAL_MAE, 0, "default"
     return {
@@ -96,17 +103,17 @@ def compute_lag_features(history_df: pd.DataFrame, program_name: str,
 
     # program lag
     prog = h[h["שם תוכנית_מקור"] == program_name]
-    lag_prog_mean = prog["רייטינג"].mean() if len(prog) else h["רייטינג"].mean()
+    lag_prog_mean = prog["רייטינג מותאם"].mean() if len(prog) else h["רייטינג מותאם"].mean()
     lag_prog_n = len(prog)
 
     # slot lag (day × hour)
     slot = h[(h["יום שידור"] == weekday_he) & (h["שעת התחלה_שעה"] == hour)]
-    lag_slot_mean = slot["רייטינג"].mean() if len(slot) else h["רייטינג"].mean()
+    lag_slot_mean = slot["רייטינג מותאם"].mean() if len(slot) else h["רייטינג מותאם"].mean()
     lag_slot_n = len(slot)
 
     # status × hour lag
     ss = h[(h["סטטוס תוכנית"] == status) & (h["שעת התחלה_שעה"] == hour)]
-    lag_ss_mean = ss["רייטינג"].mean() if len(ss) else h["רייטינג"].mean()
+    lag_ss_mean = ss["רייטינג מותאם"].mean() if len(ss) else h["רייטינג מותאם"].mean()
     lag_ss_n = len(ss)
 
     # competitor lags

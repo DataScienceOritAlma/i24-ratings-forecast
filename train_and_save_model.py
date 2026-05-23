@@ -29,7 +29,7 @@ DATA_DIR = os.path.dirname(os.path.abspath(__file__))
 SRC_XLSX = os.path.join(DATA_DIR, "תוכניות_מעובד.xlsx")
 OUT_MODEL = os.path.join(DATA_DIR, "model_saved.joblib")
 
-TARGET = "רייטינג"
+TARGET = "רייטינג מותאם"
 COMPETITORS = ["כאן 11", "קשת 12", "רשת 13", "עכשיו 14"]
 
 
@@ -140,7 +140,9 @@ def main():
         "bool_cols": PRE_AIRING_FEATURES_BOOL,
         "cat_cols": PRE_AIRING_FEATURES_CAT,
         "model_name": "HistGradientBoosting",
-        "expected_test_mae": 0.263,
+        "target_name": TARGET,
+        "target_kind": "adjusted",  # raw / adjusted
+        "expected_test_mae": 0.300,
     }, OUT_MODEL)
 
     file_kb = os.path.getsize(OUT_MODEL) / 1024

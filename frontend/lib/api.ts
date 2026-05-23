@@ -10,12 +10,15 @@ export interface PredictRequest {
 }
 
 export interface PredictResponse {
-  predicted_rating: number;
-  prediction_low: number;
-  prediction_high: number;
+  predicted_rating: number;            // adjusted rating (panel-corrected)
+  prediction_low: number;              // 80% CI lower bound (adjusted)
+  prediction_high: number;             // 80% CI upper bound (adjusted)
+  predicted_rating_raw?: number;       // derived raw rating estimate
+  reception_pct_used?: number;         // estimated panel reception
   estimated_households: number;
   estimated_viewers: number;
   model: string;
+  target_kind?: string;                // "adjusted" | "raw"
   confidence_pct: number;
   uncertainty_source: string;
   metadata: Record<string, unknown>;

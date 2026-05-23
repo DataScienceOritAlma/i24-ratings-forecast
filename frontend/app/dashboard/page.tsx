@@ -391,7 +391,7 @@ export default function DashboardPage() {
                 }} />
                 <div className="relative">
                   <div className="flex items-start justify-between mb-1">
-                    <div className="text-xs opacity-80">תחזית רייטינג</div>
+                    <div className="text-xs opacity-80">תחזית רייטינג מותאם</div>
                     {vsAvg != null && (
                       <span
                         className={`text-xs px-2 py-0.5 rounded-full font-bold ${
@@ -405,6 +405,18 @@ export default function DashboardPage() {
                   <div className="text-6xl font-black tabular-nums leading-none">
                     {result.predicted_rating.toFixed(2)}
                   </div>
+
+                  {result.predicted_rating_raw != null && (
+                    <div className="mt-2 text-xs opacity-80 flex items-center gap-1.5">
+                      <span>גולמי משוער:</span>
+                      <span className="font-bold tabular-nums">{result.predicted_rating_raw.toFixed(2)}</span>
+                      {result.reception_pct_used != null && (
+                        <span className="opacity-70">
+                          · קליטת פאנל {Math.round(result.reception_pct_used * 100)}%
+                        </span>
+                      )}
+                    </div>
+                  )}
 
                   {/* Confidence visualization */}
                   <div className="mt-5">
