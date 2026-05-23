@@ -106,10 +106,12 @@
 - `model_train_all_v4_adjusted.py` + `MODEL_REPORT_ALL_v4_adjusted.md` — השוואת 19 המודלים על Y המותאם
 - `predictions_all_v4_adjusted.xlsx` — חיזויי V4 על test set
 
-### Auto-retrain (שלב 53, 2026-05-23)
-- **`retrain_from_supabase.py`** — נטען בו ב-CI. מאמן מ-Supabase פעם בשבועיים, מודד test MAE, שומר `model_saved.joblib` ומוסיף שורה ל-`retrain_log.md`.
-- **`.github/workflows/retrain.yml`** — cron `0 4 1,15 * *` + workflow_dispatch. דורש secret `DATABASE_URL` ב-GitHub repo.
-- **`RETRAIN.md`** — מדריך תפעולי קצר (הגדרה חד-פעמית, מגבלות, מה לעקוב אחריו).
+### Auto-retrain (שלב 53-54, 2026-05-23)
+- **`retrain_from_supabase.py`** — נטען בו ב-CI. מאמן מ-Supabase, מודד test MAE, שומר `model_saved.joblib` ומוסיף שורה ל-`retrain_log.md`.
+- **`process_raw_data.py`** (שלב 54) — מקבל קובץ גולמי מ-i24 (15 עמודות), מוסיף 19 עמודות מהונדסות, ממזג עם הדאטה הקיים ועושה dedup. אומת מספרית מול eda_script.py.
+- **`.github/workflows/retrain.yml`** — cron `0 4 1 * *` (חודשי, 1 לחודש 07:00 ישראל) + workflow_dispatch. דורש secret `DATABASE_URL` ב-GitHub repo.
+- **`.claude/skills/process-i24-data/`** — סקיל מקומי (לא ב-git) שמנחה אותי בזרימה החודשית של בליעת דאטה חדשה.
+- **`RETRAIN.md`** — מדריך תפעולי: זרימה חודשית מקבצי i24 גולמיים → סקריפט → Supabase → retrain → deploy.
 - `.streamlit/config.toml` — תצורה
 - `.streamlit/secrets.toml.example` — תבנית לסיסמה (הקובץ האמיתי ב-gitignore)
 - `requirements.txt` — תלויות לפריסה (כולל joblib==1.4.2)
