@@ -1,7 +1,34 @@
 # Work Log — EDA & Event Tagging for i24 Ratings Project
 
 > תיעוד שלב-אחר-שלב של כל מה שנעשה בפרויקט.
-> עודכן לאחרונה: 2026-05-22
+> עודכן לאחרונה: 2026-05-23
+
+---
+
+## 2026-05-23 — שלב 52: החלפת Y ל-`רייטינג מותאם` (panel-adjusted)
+
+אורית שאלה איזה Y נכון לאמן עליו. בבדיקה התגלה: `רייטינג מותאם = רייטינג / reception_pct` בדיוק (מתאם 1.000000, הפרש 0.000000). המודל היה אמור לחזות את העמודה המותאמת — היא ה-KPI העסקי, ו-reception_pct לא ניתן לחזות לעתיד.
+
+### השוואת ביצועים (HistGradientBoosting, אותו פיצול)
+| | V3 (גולמי) | V4 (מותאם) |
+|---|---|---|
+| MAE | 0.263 | 0.300 |
+| MAE/mean (יחסי) | 59.7% | **53.1%** |
+| R² | 0.603 | **0.617** |
+
+המודל החדש טוב ב-11% יחסית — אבסולוטית עולה כי הסקאלה גדולה ב-1.3x.
+
+### שינויים בקוד
+- `train_and_save_model.py` · `TARGET = "רייטינג מותאם"` + metadata חדש (`target_name`, `target_kind`, `expected_test_mae=0.300`)
+- `model_saved.joblib` · אומן מחדש על Y הנכון. גיבוי ב-`model_saved_v3_raw.joblib.bak` (לא ב-Git)
+- `backend/prediction_logic.py` · כל החישובים ההיסטוריים (lag/std/trend) עברו ל-`רייטינג מותאם`. `estimate_reception_pct` מתפרשת לעתיד עם תקרה 0.95
+- `backend/main.py` · ה-API מחזיר עכשיו `predicted_rating_raw` ו-`reception_pct_used` בנוסף ל-מותאם. `_load_history` מחשב את עמודת המותאם מ-raw + reception
+- `frontend/lib/api.ts` + `dashboard/page.tsx` · התווית בכרטיס התוצאה היא עכשיו "תחזית רייטינג מותאם"; "גולמי משוער" + reception_pct מוצגים מתחת
+- **`model_train_all_v4_adjusted.py`** (חדש) · משווה את כל 19 המודלים על Y החדש
+- **`MODEL_REPORT_ALL_v4_adjusted.md`** (חדש) · הדוח המעודכן
+
+### Commit
+`92864cc` · push ל-`main`. Render + Vercel build אוטומטי.
 
 ---
 

@@ -101,8 +101,10 @@
 - **`utils/predict.py`** (חדש) — חיזוי בזמן אמת על קלט עתידי
 - **`utils/imputers.py`** (חדש) — imputers משותפים (פתרון pickle cross-script)
 - **`utils/style.py`** (חדש) — מערכת עיצוב מאוחדת (Heebo, גרדיאנטים, hover)
-- **`train_and_save_model.py`** (חדש) — מאמן את HistGradientBoosting ושומר ל-joblib
-- **`model_saved.joblib`** (חדש, 1.2MB) — הצנרת המאומנת לטעינה ב-runtime
+- **`train_and_save_model.py`** — מאמן את HistGradientBoosting ושומר ל-joblib. **TARGET = `רייטינג מותאם`** (panel-adjusted, ראה שלב 52)
+- **`model_saved.joblib`** (1.2MB) — הצנרת המאומנת. מטא-דאטה כולל `target_name`, `target_kind="adjusted"`, `expected_test_mae=0.300`
+- `model_train_all_v4_adjusted.py` + `MODEL_REPORT_ALL_v4_adjusted.md` — השוואת 19 המודלים על Y המותאם
+- `predictions_all_v4_adjusted.xlsx` — חיזויי V4 על test set
 - `.streamlit/config.toml` — תצורה
 - `.streamlit/secrets.toml.example` — תבנית לסיסמה (הקובץ האמיתי ב-gitignore)
 - `requirements.txt` — תלויות לפריסה (כולל joblib==1.4.2)
@@ -144,27 +146,30 @@ py -3 model_train_all.py            # V3 — 19 מודלים, ~60 שניות
 - שלב עיצוב: **הושלם ✅** — מערכת עיצוב מאוחדת
 
 ## תוצאות מידול (לעיון מהיר)
+
+**V4 — Y = `רייטינג מותאם` (בייצור היום)**
 | מודל | MAE | R² |
 |---|---|---|
-| נאיבי גלובלי | 0.422 | -0.046 |
-| Baseline ממוצע-רצועה | 0.305 | 0.435 |
-| Ridge | 0.372 | 0.471 |
-| Lasso | 0.288 | 0.486 |
-| RandomForest tuned (V2) | 0.280 | 0.566 |
-| XGBoost | 0.280 | 0.558 |
-| ExtraTrees | 0.272 | 0.579 |
-| Stacking (RF+XGB+LGB+Ridge) | 0.272 | 0.566 |
-| CatBoost | 0.271 | 0.576 |
-| GradientBoosting (sklearn) | 0.270 | 0.579 |
+| **🏆 HistGradientBoosting (V4)** | **0.300** | **0.617** |
+| LightGBM | 0.305 | 0.617 |
+| GradientBoosting | 0.302 | 0.603 |
+| XGBoost / CatBoost | 0.310 | 0.59-0.61 |
+| Stacking | 0.312 | 0.578 |
+
+**V3 — Y = `רייטינג` (גולמי, היסטורי)**
+| מודל | MAE | R² |
+|---|---|---|
+| **HistGradientBoosting** | **0.263** | **0.603** |
 | LightGBM | 0.265 | 0.598 |
-| **🏆 HistGradientBoosting (V3)** | **0.263** | **0.603** |
-| MLP (64×32) | 0.328 | 0.468 |
-| KNN / SVR / DecisionTree | 0.294–0.298 | 0.47–0.48 |
-| SARIMAX / Additive TS | 0.379–0.397 | שלילי |
+| GradientBoosting | 0.270 | 0.579 |
+
+> ⚠️ MAE לא ישיר להשוואה: סקאלת `מותאם` גדולה ב-1.3x מ-`גולמי`. ב-MAE/mean יחסית, V4 ב-53.1% לעומת V3 ב-59.7% (V4 טוב ב-11%).
 
 ## החלטות ארכיטקטורה שכבר התקבלו
+- **Y = `רייטינג מותאם`** (panel-adjusted, ה-KPI העסקי, ראה שלב 52)
 - פיצול **כרונולוגי** 80/20 (חיתוך 2026-02-08) — לא רנדומלי
 - **אין leakage**: עמודות שנמדדות אחרי שידור הוצאו מה-features
-- Lag features מחושבים רק מהיסטוריה שקדמה לכל שורה
+- Lag features מחושבים רק מהיסטוריה שקדמה לכל שורה (על `רייטינג מותאם`)
 - מודל יחיד עדיף על Hybrid (overfitting על דאטה קטן של אירועים)
 - תקרת הביצועים = drift של אירועים בלתי-צפויים, לא בחירת מודל
+- `reception_pct` עתידי מוערך בקירוב ליניארי (0.65 → 0.95), כדי לגזור raw מ-adjusted
