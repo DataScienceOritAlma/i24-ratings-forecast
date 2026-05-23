@@ -1,10 +1,10 @@
-name: Bi-weekly model retrain
+name: Monthly model retrain
 
 on:
   schedule:
-    # Every 1st and 15th of the month, at 04:00 UTC (07:00 Israel)
-    - cron: '0 4 1,15 * *'
-  # Allow manual trigger from the GitHub Actions UI
+    # 1st of every month at 04:00 UTC (07:00 Israel)
+    - cron: '0 4 1 * *'
+  # Allow manual trigger from the GitHub Actions UI (use after adding new monthly data)
   workflow_dispatch:
 
 permissions:
