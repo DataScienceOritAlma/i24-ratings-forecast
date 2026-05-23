@@ -5,6 +5,26 @@
 
 ---
 
+## 2026-05-23 — שלב 53: Auto-retrain — pipeline אוטומטי דו-שבועי
+
+אורית דיווחה שתי שגיאות-בכיוון-אחד רצופות של קבינט שישי (~1.5 מעל אמת). הדאטה מסתיים 18/04, אנחנו 5 שבועות אחרי — drift קלאסי. הפתרון: cron שמאמן את המודל מחדש מ-Supabase פעם בשבועיים.
+
+### תשתית חדשה
+- **`retrain_from_supabase.py`** — שולף broadcasts+programs מ-Supabase, גוזר רייטינג מותאם, מודד test MAE על פיצול כרונולוגי 80/20, re-fits על דאטה מלאה, שומר `model_saved.joblib` עם metadata עשיר (trained_at_utc, n_train_rows). מוסיף שורה ל-`retrain_log.md`.
+- **`.github/workflows/retrain.yml`** — GitHub Actions cron: `0 4 1,15 * *` (07:00 ישראל בכל 1 ו-15 בחודש) + workflow_dispatch ידני. מתקין deps פייתון מינימליים, מריץ, commit+push בשם github-actions[bot]. ה-push מפעיל Render auto-deploy.
+- **`RETRAIN.md`** — מדריך תפעולי: הגדרה ראשונית (secret אחד), הפעלה ידנית, מגבלה ידועה.
+
+### מגבלה מתועדת
+ב-Supabase כרגע חסרים: רייטינג מתחרים, תגיות חג/ביטחוני, משך תוכנית. ב-CI ה-features האלו יקבלו defaults → test MAE צפוי ~0.34 במקום ~0.30 מה-xlsx המלא. עדיין יותר טוב ממודל בן-5-שבועות.
+
+### דרישת משתמש
+פעולה חד-פעמית של 30 שניות: להוסיף `DATABASE_URL` ב-GitHub Settings → Secrets and variables → Actions. אחרי זה ה-cron רץ לבד לעד.
+
+### Commit
+`1205096` · push ל-`main`.
+
+---
+
 ## 2026-05-23 — שלב 52: החלפת Y ל-`רייטינג מותאם` (panel-adjusted)
 
 אורית שאלה איזה Y נכון לאמן עליו. בבדיקה התגלה: `רייטינג מותאם = רייטינג / reception_pct` בדיוק (מתאם 1.000000, הפרש 0.000000). המודל היה אמור לחזות את העמודה המותאמת — היא ה-KPI העסקי, ו-reception_pct לא ניתן לחזות לעתיד.

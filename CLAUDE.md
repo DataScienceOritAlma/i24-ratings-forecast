@@ -105,6 +105,11 @@
 - **`model_saved.joblib`** (1.2MB) — הצנרת המאומנת. מטא-דאטה כולל `target_name`, `target_kind="adjusted"`, `expected_test_mae=0.300`
 - `model_train_all_v4_adjusted.py` + `MODEL_REPORT_ALL_v4_adjusted.md` — השוואת 19 המודלים על Y המותאם
 - `predictions_all_v4_adjusted.xlsx` — חיזויי V4 על test set
+
+### Auto-retrain (שלב 53, 2026-05-23)
+- **`retrain_from_supabase.py`** — נטען בו ב-CI. מאמן מ-Supabase פעם בשבועיים, מודד test MAE, שומר `model_saved.joblib` ומוסיף שורה ל-`retrain_log.md`.
+- **`.github/workflows/retrain.yml`** — cron `0 4 1,15 * *` + workflow_dispatch. דורש secret `DATABASE_URL` ב-GitHub repo.
+- **`RETRAIN.md`** — מדריך תפעולי קצר (הגדרה חד-פעמית, מגבלות, מה לעקוב אחריו).
 - `.streamlit/config.toml` — תצורה
 - `.streamlit/secrets.toml.example` — תבנית לסיסמה (הקובץ האמיתי ב-gitignore)
 - `requirements.txt` — תלויות לפריסה (כולל joblib==1.4.2)
