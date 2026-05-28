@@ -46,6 +46,7 @@
 - `MENTOR_PREP.md` — הכנה למפגשי מנטור 3-6 + שאלות לשאול
 - `PRODUCT_VISION.md` — חזון מוצר B2B + GitHub strategy + דאטה נוסף
 - **`PRODUCT_SPEC.md`** — **North Star v1.0 (2026-05-20):** ספק מוצר מפורט — לקוח-יעד (סוכנויות → ערוצים), תמחור Trial+Pro+Enterprise (+ setup fee), MVP כולל GenAI, ארכיטקטורת 3-שכבות, רוד-מאפ 10-12 שבועות, חוסמים (i24 פתוח · עוסק ✅)
+- **`PRD.md`** — **מסמך דרישות מוצר v1.1 (2026-05-28):** פרסונות (מנהל חדשות / דסק תכנות), use cases, יכולות נוכחיות, באגים שנסגרו מול פתוחים, רודמאפ (כולל severity שנבדק ונדחה כפיצ'ר). מסלול ג׳ של המנטור
 - **`SCHEMA.md`** — תכנון שכבת Data: 6 טבלאות (organizations, profiles, subscriptions, programs, broadcasts, predictions), RLS, indices, תכנית הגירה xlsx→Postgres
 - **`schema.sql`** — DDL להרצה ישירה ב-Supabase SQL Editor (6 טבלאות + indices + RLS policies + triggers, אידמפוטנטי)
 - **`setup_db.py`** — מריץ את `schema.sql` ב-Supabase דרך psycopg (אלטרנטיבה ל-SQL Editor)
@@ -63,7 +64,7 @@
 - הרצה: `cd frontend && npm install && npm run dev` → http://localhost:3000
 
 ### Backend (FastAPI ML Service — שלב 2, 2026-05-21)
-- `backend/main.py` — FastAPI app: `/health`, `/predict`, `/docs`. טוען model_saved.joblib + היסטוריה מ-Supabase ב-startup
+- `backend/main.py` — FastAPI app: `/health`, `/predict`, `/docs`. טוען model_saved.joblib + היסטוריה מ-Supabase ב-startup. **תרחיש `scenario`:** `routine` או `special_event` (=אירוע ביטחוני; מדליק `is_security`, ≈+39%). חגים אינם תרחיש (הוסרו, שלב 57)
 - `backend/prediction_logic.py` — חישוב lag features, slot uncertainty, trend (פורט מ-utils/predict.py בלי תלות ב-Streamlit)
 - `backend/requirements.txt` — FastAPI · uvicorn · sklearn · pandas · psycopg · dotenv
 - `backend/render.yaml` — תצורת פריסה אוטומטית ל-Render.com
@@ -107,7 +108,8 @@
 - `predictions_all_v4_adjusted.xlsx` — חיזויי V4 על test set
 
 ### Auto-retrain (שלב 53-54, 2026-05-23)
-- **`retrain_from_supabase.py`** — נטען בו ב-CI. מאמן מ-Supabase, מודד test MAE, שומר `model_saved.joblib` ומוסיף שורה ל-`retrain_log.md`.
+- **`retrain_from_supabase.py`** — נטען בו ב-CI. מאמן מ-Supabase, מודד test MAE, שומר `model_saved.joblib` ומוסיף שורה ל-`retrain_log.md`. **שלב 55:** `tag_events_by_date()` גוזר תגי אירועים מ-`אירועים_מדויקים.csv` לפי תאריך (תיקון הבאג שבו התגים אבדו לברירות-מחדל קבועות). טוען `.env` ומושך גם `duration_min`.
+- **`verify_event_fix.py`** (שלב 55) — מוכיח את תיקון האירועים: תיוג נכון (0 אי-התאמות מול xlsx) + ablation (שיפור 9.6% ב-MAE: 0.333→0.301) + permutation importance. הרצה מקומית, ללא DB.
 - **`process_raw_data.py`** (שלב 54) — מקבל קובץ גולמי מ-i24 (15 עמודות), מוסיף 19 עמודות מהונדסות, ממזג עם הדאטה הקיים ועושה dedup. אומת מספרית מול eda_script.py.
 - **`.github/workflows/retrain.yml`** — cron `0 4 1 * *` (חודשי, 1 לחודש 07:00 ישראל) + workflow_dispatch. דורש secret `DATABASE_URL` ב-GitHub repo.
 - **`.claude/skills/process-i24-data/`** — סקיל מקומי (לא ב-git) שמנחה אותי בזרימה החודשית של בליעת דאטה חדשה.
@@ -115,6 +117,12 @@
 - `.streamlit/config.toml` — תצורה
 - `.streamlit/secrets.toml.example` — תבנית לסיסמה (הקובץ האמיתי ב-gitignore)
 - `requirements.txt` — תלויות לפריסה (כולל joblib==1.4.2)
+
+### סוכן אירועים — LLM (שלב 56+59, 2026-05-28)
+- **`event_severity.py`** — נותן ציון severity (0–10) לאירוע דרך Groq (HTTPS ישיר, בלי SDK). system prompt עם טבלת דירוג + few-shot מהאירועים האמיתיים. `--dry-run`, retry-on-429. דורש `GROQ_API_KEY` ב-`.env`.
+- **`score_events_severity.py`** — מדרג את כל האירועים הביטחוניים ושומר עמודת `severity` ב-`אירועים_מדויקים.csv`.
+- **`compare_severity.py`** — סקריפט ההשוואה one-hot↔severity.
+- ⚠️ **severity אינו פיצ'ר במודל** (שלב 59): ניסוי הראה שהוא מזיק (MAE 0.30→0.41) כי עוצמה סמנטית ≠ השפעה per-broadcast (אפקט משך). נשמר לשכבת הסבר/צ'אטבוט עתידית, לא לחיזוי הרייטינג.
 
 ### 🌐 Live URLs
 - **GitHub:** https://github.com/DataScienceOritAlma/i24-ratings-forecast (ציבורי)
@@ -180,3 +188,4 @@ py -3 model_train_all.py            # V3 — 19 מודלים, ~60 שניות
 - מודל יחיד עדיף על Hybrid (overfitting על דאטה קטן של אירועים)
 - תקרת הביצועים = drift של אירועים בלתי-צפויים, לא בחירת מודל
 - `reception_pct` עתידי מוערך בקירוב ליניארי (0.65 → 0.95), כדי לגזור raw מ-adjusted
+- **אין פיצ'רי חגים/עונות** (הוסרו 2026-05-28, שלב 57): ablation הראה תרומה ~0 ואות הרייטינג בחגים שנוי-במחלוקת/לא-אמין (דומיין i24 אומר נמוך, הדאטה מראה גבוה). אירועי ביטחון (`תג_ביטחוני`,`יום_ביטחוני`) נשארו — שווים ~10.6% מ-MAE

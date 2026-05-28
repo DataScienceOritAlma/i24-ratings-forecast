@@ -130,7 +130,7 @@ export default function AnalyticsPage() {
                 <Stat n={stats.total} label="סה״כ תחזיות" icon="📊" />
                 <Stat n={stats.thisWeek} label="השבוע" icon="📅" highlight />
                 <Stat n={stats.routine} label="שגרה" icon="🕐" />
-                <Stat n={stats.special} label="אירועים מיוחדים" icon="⚡" />
+                <Stat n={stats.special} label="אירועים ביטחוניים" icon="🚨" />
               </>
             )}
           </div>

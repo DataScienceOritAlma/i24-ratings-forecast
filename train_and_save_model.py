@@ -86,9 +86,11 @@ PRE_AIRING_FEATURES_NUM = [
     "lag_competitors_avg_slot",
 ]
 
-PRE_AIRING_FEATURES_BOOL = ["is_rerun", "יום_חג", "יום_ביטחוני", "שבת"]
-PRE_AIRING_FEATURES_CAT = ["יום שידור", "חלקי-יום", "סטטוס תוכנית",
-                            "תג_עונה", "תג_חג", "תג_ביטחוני"]
+# Holidays + season dropped (2026-05-28): ablation showed ~0 contribution and
+# the holiday rating signal in the data is contested/unreliable. Security events
+# stay — they're worth ~10.6% of MAE. See WORK_LOG שלב 57.
+PRE_AIRING_FEATURES_BOOL = ["is_rerun", "יום_ביטחוני", "שבת"]
+PRE_AIRING_FEATURES_CAT = ["יום שידור", "חלקי-יום", "סטטוס תוכנית", "תג_ביטחוני"]
 ALL_COLS = PRE_AIRING_FEATURES_NUM + PRE_AIRING_FEATURES_BOOL + PRE_AIRING_FEATURES_CAT
 
 

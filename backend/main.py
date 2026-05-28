@@ -199,7 +199,11 @@ def extract_program(text: str) -> Optional[str]:
 
 
 def detect_scenario(text: str) -> str:
-    if any(w in text for w in ["אירוע", "מבזק", "ברייקינג", "פיגוע", "מבצע", "חג"]):
+    # "special_event" is the canonical key for a SECURITY event (the only event
+    # type the model still uses — holidays were dropped in שלב 57, so "חג" no
+    # longer triggers it).
+    if any(w in text for w in ["אירוע", "מבזק", "ברייקינג", "פיגוע", "מבצע",
+                               "מלחמה", "הסלמה", "טילים"]):
         return "special_event"
     return "routine"
 
@@ -231,7 +235,7 @@ class PredictRequest(BaseModel):
     target_date: date_t = Field(..., description="תאריך שידור צפוי (YYYY-MM-DD)")
     start_time: time_t = Field(..., description="שעת התחלה (HH:MM:SS)")
     end_time: Optional[time_t] = Field(None, description="שעת סיום (אופציונלי)")
-    scenario: str = Field("routine", description="routine | special_event")
+    scenario: str = Field("routine", description="routine | special_event (=security event)")
     status: str = Field("שידור חי", description="סטטוס תוכנית")
 
 
@@ -345,7 +349,7 @@ def ask(req: AskRequest):
     weekday_he_name = {
         0: "שני", 1: "שלישי", 2: "רביעי", 3: "חמישי", 4: "שישי", 5: "שבת", 6: "ראשון"
     }[target.weekday()]
-    scenario_he = "אירוע מיוחד" if scenario == "special_event" else "שגרה"
+    scenario_he = "אירוע ביטחוני" if scenario == "special_event" else "שגרה"
 
     answer = (
         f"📊 תחזית לתוכנית **{program}** ב{weekday_he_name} {target.strftime('%d/%m/%Y')} "
@@ -494,8 +498,11 @@ async def stripe_webhook(request: Request):
 @app.post("/predict", response_model=PredictResponse)
 def predict(req: PredictRequest):
     h = req.start_time.hour
-    is_holiday = req.scenario == "special_event"
-    is_security = False  # not enriched in v1
+    # "special_event" now means a SECURITY event. Holidays were dropped from the
+    # model (שלב 57); this fires the strong יום_ביטחוני signal (≈+39% on a
+    # typical prime-time program).
+    is_security = req.scenario == "special_event"
+    is_holiday = False
 
     feats = compute_lag_features(
         history_df=HISTORY_DF,

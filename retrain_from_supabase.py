@@ -33,11 +33,18 @@ from sklearn.preprocessing import OneHotEncoder, StandardScaler
 
 from utils.imputers import SimpleMedianImputer, SimpleConstantImputer
 
+try:  # local runs read DATABASE_URL from .env; CI injects it as a real env var
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    pass
+
 warnings.filterwarnings("ignore")
 
 ROOT = Path(__file__).resolve().parent
 OUT_MODEL = ROOT / "model_saved.joblib"
 OUT_LOG = ROOT / "retrain_log.md"
+EVENTS_CSV = ROOT / "אירועים_מדויקים.csv"
 TARGET = "רייטינג מותאם"
 TEST_FRAC = 0.20
 COMPETITORS = ["כאן 11", "קשת 12", "רשת 13", "עכשיו 14"]
@@ -96,9 +103,11 @@ PRE_AIRING_FEATURES_NUM = [
     "lag_comp_רשת_13_slot", "lag_comp_עכשיו_14_slot",
     "lag_competitors_avg_slot",
 ]
-PRE_AIRING_FEATURES_BOOL = ["is_rerun", "יום_חג", "יום_ביטחוני", "שבת"]
-PRE_AIRING_FEATURES_CAT = ["יום שידור", "חלקי-יום", "סטטוס תוכנית",
-                            "תג_עונה", "תג_חג", "תג_ביטחוני"]
+# Holidays + season dropped (2026-05-28): ablation showed ~0 contribution and
+# the holiday rating signal in the data is contested/unreliable. Security events
+# stay — they're worth ~10.6% of MAE. See WORK_LOG שלב 57.
+PRE_AIRING_FEATURES_BOOL = ["is_rerun", "יום_ביטחוני", "שבת"]
+PRE_AIRING_FEATURES_CAT = ["יום שידור", "חלקי-יום", "סטטוס תוכנית", "תג_ביטחוני"]
 ALL_COLS = PRE_AIRING_FEATURES_NUM + PRE_AIRING_FEATURES_BOOL + PRE_AIRING_FEATURES_CAT
 
 
@@ -111,6 +120,57 @@ def build_preprocessor():
                           ("oh", OneHotEncoder(handle_unknown="ignore", sparse_output=False))]),
          PRE_AIRING_FEATURES_CAT),
     ])
+
+
+def tag_events_by_date(df: pd.DataFrame) -> pd.DataFrame:
+    """Derive event tags (season / holiday / security) from the curated events
+    file by matching each broadcast date to event start–end ranges.
+
+    Mirrors eda_script.tag_events so the Supabase-trained model sees the SAME
+    multi-category event features as the CSV-trained model. Without this the
+    tag columns collapse to a single constant value and the model ignores them
+    (security/holiday signal worth ~8% of MAE).
+    """
+    if not EVENTS_CSV.exists():
+        raise RuntimeError(f"{EVENTS_CSV.name} not found — cannot tag events.")
+    ev = pd.read_csv(EVENTS_CSV)
+    ev["_start"] = pd.to_datetime(ev["תאריך_התחלה"], errors="coerce")
+    ev["_end"] = pd.to_datetime(ev["תאריך_סיום"], errors="coerce")
+
+    dates = pd.to_datetime(df["תאריך שידור"])
+    sec_kinds = {"ביטחוני", "מדיני"}
+
+    df["תג_עונה"] = "—"
+    df["תג_חג"] = "—"
+    df["תג_ביטחוני"] = "—"
+    # LLM-scored security intensity (0–10; max if events overlap). NOT a model
+    # feature — adding it hurt MAE (0.30→0.41) because semantic intensity ≠
+    # per-broadcast rating impact (duration confound; see compare_severity.py,
+    # WORK_LOG שלב 59). Kept for the explanation/chatbot layer.
+    df["severity"] = 0.0
+    for _, e in ev.iterrows():
+        if pd.isna(e["_start"]) or pd.isna(e["_end"]):
+            continue
+        m = (dates >= e["_start"]) & (dates <= e["_end"])
+        if not m.any():
+            continue
+        kind, name = e["קטגוריה"], e["שם_אירוע"]
+        if kind == "עונה":
+            df.loc[m, "תג_עונה"] = name
+        elif kind == "חג":
+            df.loc[m, "תג_חג"] = name
+        elif kind in sec_kinds:
+            cur = df.loc[m, "תג_ביטחוני"]
+            df.loc[m, "תג_ביטחוני"] = (
+                cur.where(cur == "—", cur + " + " + name).where(cur != "—", name)
+            )
+            sev = float(e["severity"]) if "severity" in ev.columns and pd.notna(e["severity"]) else 0.0
+            df.loc[m, "severity"] = np.maximum(df.loc[m, "severity"], sev)
+
+    df["יום_חג"] = df["תג_חג"] != "—"
+    df["יום_ביטחוני"] = df["תג_ביטחוני"] != "—"
+    df["שבת"] = df["יום שידור"].astype(str) == "שבת"
+    return df
 
 
 def _daypart(hour: int) -> str:
@@ -138,6 +198,7 @@ def load_from_supabase() -> pd.DataFrame:
                 b.day_of_week    as "יום שידור",
                 b.daypart        as "חלקי-יום",
                 b.status         as "סטטוס תוכנית",
+                b.duration_min   as "משך תוכנית_דק",
                 b.event          as "אירוע_מיוחד",
                 b.is_rerun,
                 b.actual_rating  as "רייטינג",
@@ -166,14 +227,11 @@ def load_from_supabase() -> pd.DataFrame:
         )
     # Adjusted rating
     df["רייטינג מותאם"] = pd.to_numeric(df["רייטינג"], errors="coerce") / pd.to_numeric(df["reception_pct"], errors="coerce")
-    # Tags + flags — fill with safe defaults (these will be missing in Supabase until added)
-    for col, default in [
-        ("תג_עונה", "—"), ("תג_חג", "—"), ("תג_ביטחוני", "—"),
-        ("יום_חג", False), ("יום_ביטחוני", False), ("שבת", False),
-        ("משך תוכנית_דק", 30.0),
-    ]:
-        if col not in df.columns:
-            df[col] = default
+    df["משך תוכנית_דק"] = pd.to_numeric(df["משך תוכנית_דק"], errors="coerce")
+    # Event tags — derived from the curated events file by date (NOT constant
+    # defaults). This is the fix for the bug where security/holiday features
+    # were collapsing to a single category and the model ignored them.
+    df = tag_events_by_date(df)
     # Competitor columns: not in Supabase yet → 0
     for ch in COMPETITORS:
         if ch not in df.columns:

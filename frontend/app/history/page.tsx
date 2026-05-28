@@ -159,9 +159,9 @@ export default function HistoryPage() {
                 smallValue
               />
               <SummaryCard
-                label="אירועים מיוחדים"
+                label="אירועים ביטחוניים"
                 value={summary.specialCount.toString()}
-                icon="⚡"
+                icon="🚨"
               />
             </section>
 
@@ -275,7 +275,7 @@ function PredictionCard({ p }: { p: Prediction }) {
         </div>
         {p.scenario === "special_event" && (
           <span className="text-[10px] px-2 py-0.5 rounded-full bg-brand-accent text-white font-bold whitespace-nowrap">
-            ⚡ מיוחד
+            🚨 ביטחוני
           </span>
         )}
       </div>

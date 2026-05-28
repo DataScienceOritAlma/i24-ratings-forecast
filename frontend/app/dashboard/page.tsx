@@ -349,8 +349,8 @@ export default function DashboardPage() {
                         : "bg-slate-50 text-muted border-slate-200 hover:border-slate-300"
                     }`}
                   >
-                    <div className="text-lg leading-none">⚡</div>
-                    <div className="text-sm mt-1">אירוע מיוחד</div>
+                    <div className="text-lg leading-none">🚨</div>
+                    <div className="text-sm mt-1">אירוע ביטחוני</div>
                   </button>
                 </div>
               </div>
@@ -489,7 +489,7 @@ export default function DashboardPage() {
                 <span>💡</span> טיפ
               </div>
               <p className="text-amber-800 leading-relaxed">
-                לפניית-לוז אסטרטגית — קבעי תרחיש &quot;אירוע מיוחד&quot; כדי לקבל רווח-ביטחון רחב יותר.
+                לתכנון תרחישים — קבעי &quot;אירוע ביטחוני&quot; כדי לראות את הקפיצה הצפויה ברייטינג בזמן הסלמה.
               </p>
             </div>
           </section>
