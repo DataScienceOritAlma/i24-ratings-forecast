@@ -1,0 +1,20 @@
+name: keep-alive
+
+# Pings the live services so the free tiers don't fall asleep (Render/Streamlit
+# sleep after ~15 min idle → slow cold start on the next request). Runs on a
+# schedule and can be triggered manually. A self-contained alternative to
+# UptimeRobot — no external account needed.
+
+on:
+  schedule:
+    - cron: "*/10 * * * *"   # every 10 minutes
+  workflow_dispatch:
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping backend (Render)
+        run: curl -fsS -m 60 https://i24-ratings-api.onrender.com/health || true
+      - name: Ping Streamlit
+        run: curl -fsS -m 60 https://i24-ratings-orit.streamlit.app || true

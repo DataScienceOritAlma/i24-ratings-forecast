@@ -112,6 +112,7 @@
 - **`verify_event_fix.py`** (שלב 55) — מוכיח את תיקון האירועים: תיוג נכון (0 אי-התאמות מול xlsx) + ablation (שיפור 9.6% ב-MAE: 0.333→0.301) + permutation importance. הרצה מקומית, ללא DB.
 - **`process_raw_data.py`** (שלב 54) — מקבל קובץ גולמי מ-i24 (15 עמודות), מוסיף 19 עמודות מהונדסות, ממזג עם הדאטה הקיים ועושה dedup. אומת מספרית מול eda_script.py.
 - **`.github/workflows/retrain.yml`** — cron `0 4 1 * *` (חודשי, 1 לחודש 07:00 ישראל) + workflow_dispatch. דורש secret `DATABASE_URL` ב-GitHub repo.
+- **`.github/workflows/keepalive.yml`** (שלב 61) — cron `*/10 * * * *`: ping ל-`/health` (Render) ול-Streamlit כדי למנוע Cold Start. חלופה עצמאית ל-UptimeRobot.
 - **`.claude/skills/process-i24-data/`** — סקיל מקומי (לא ב-git) שמנחה אותי בזרימה החודשית של בליעת דאטה חדשה.
 - **`RETRAIN.md`** — מדריך תפעולי: זרימה חודשית מקבצי i24 גולמיים → סקריפט → Supabase → retrain → deploy.
 - `.streamlit/config.toml` — תצורה
