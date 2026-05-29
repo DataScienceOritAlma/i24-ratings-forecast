@@ -24,10 +24,10 @@ export default function LandingPage() {
             📺 i24 Forecast
           </Link>
           <div className="hidden md:flex items-center gap-5 text-sm text-muted">
-            <a href="/index.html#about" className="hover:text-brand-dark transition">אודות</a>
-            <a href="/index.html#stats" className="hover:text-brand-dark transition">מספרים</a>
-            <a href="/index.html#tech" className="hover:text-brand-dark transition">טכנולוגיה</a>
-            <a href="/infographic.html" className="hover:text-brand-dark transition font-bold">🔮 מקסם למדע</a>
+            <Link href="/about" className="hover:text-brand-dark transition">אודות</Link>
+            <Link href="/numbers" className="hover:text-brand-dark transition">מספרים</Link>
+            <Link href="/technology" className="hover:text-brand-dark transition">טכנולוגיה</Link>
+            <Link href="/infographic" className="hover:text-brand-dark transition font-bold">🔮 מקסם למדע</Link>
           </div>
           <div className="flex items-center gap-3">
             <Link

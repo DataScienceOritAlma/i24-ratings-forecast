@@ -9,15 +9,15 @@ interface Props {
   title?: string;
 }
 
-const NAV: { href: string; label: string; key: string; external?: boolean }[] = [
+const NAV = [
   { href: "/dashboard", label: "🎯 חיזוי", key: "dashboard" },
   { href: "/chat", label: "💬 שאל", key: "chat" },
   { href: "/history", label: "📚 היסטוריה", key: "history" },
   { href: "/analytics", label: "📊 אנליטיקה", key: "analytics" },
-  { href: "/index.html#about", label: "אודות", key: "about", external: true },
-  { href: "/index.html#stats", label: "מספרים", key: "stats", external: true },
-  { href: "/index.html#tech", label: "טכנולוגיה", key: "tech", external: true },
-  { href: "/infographic.html", label: "🔮 מקסם למדע", key: "infographic", external: true },
+  { href: "/about", label: "אודות", key: "about" },
+  { href: "/numbers", label: "מספרים", key: "numbers" },
+  { href: "/technology", label: "טכנולוגיה", key: "technology" },
+  { href: "/infographic", label: "🔮 מקסם למדע", key: "infographic" },
   { href: "/account", label: "👤 חשבון", key: "account" },
 ];
 
@@ -41,24 +41,38 @@ export default function NavBar({ email, title = "לוח חיזוי תחזיות"
           {NAV.map((item) => {
             const active = pathname === item.href ||
               (item.href !== "/dashboard" && pathname.startsWith(item.href));
-            const cls = `px-3 py-1.5 rounded-lg transition ${
-              active ? "bg-white/20 font-bold" : "bg-white/5 hover:bg-white/15"
-            }`;
-            return item.external ? (
-              <a key={item.key} href={item.href} className={cls}>{item.label}</a>
-            ) : (
-              <Link key={item.key} href={item.href} className={cls}>{item.label}</Link>
+            return (
+              <Link
+                key={item.key}
+                href={item.href}
+                className={`px-3 py-1.5 rounded-lg transition ${
+                  active ? "bg-white/20 font-bold" : "bg-white/5 hover:bg-white/15"
+                }`}
+              >
+                {item.label}
+              </Link>
             );
           })}
-          <span className="opacity-90 mx-2 hidden md:inline text-xs" dir="ltr">
-            {email}
-          </span>
-          <button
-            onClick={handleSignOut}
-            className="px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 transition"
-          >
-            יציאה
-          </button>
+          {email ? (
+            <>
+              <span className="opacity-90 mx-2 hidden md:inline text-xs" dir="ltr">
+                {email}
+              </span>
+              <button
+                onClick={handleSignOut}
+                className="px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 transition"
+              >
+                יציאה
+              </button>
+            </>
+          ) : (
+            <Link
+              href="/login"
+              className="px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 transition"
+            >
+              התחברות
+            </Link>
+          )}
         </nav>
       </div>
     </header>

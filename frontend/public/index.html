@@ -31,6 +31,9 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;700;900&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="style.css">
+  <!-- Embed mode: when loaded inside the app (?embed), hide this page's own nav so only the app's NavBar shows -->
+  <style>.embed .nav, .embed .scroll-progress { display: none !important; }</style>
+  <script>if (location.search.indexOf("embed") > -1) document.documentElement.classList.add("embed");</script>
 </head>
 <body>
 
