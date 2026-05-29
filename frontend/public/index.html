@@ -34,18 +34,21 @@
   <!-- Unified top bar: visually identical to the React app's NavBar, so the showcase
        pages feel like one site with the app. Same-tab links in both directions. -->
   <style>
-    .appbar{position:sticky;top:0;z-index:200;background:linear-gradient(to bottom right,#0A2540,#1E5DB8);color:#fff;padding:14px 0;box-shadow:0 10px 15px -3px rgba(0,0,0,.1),0 4px 6px -4px rgba(0,0,0,.1);font-family:'Heebo','Arial',sans-serif}
+    /* Pixel-matched to the React app's NavBar (Tailwind: py-5, max-w-6xl, px-6, gap-3 / nav gap-1.5,
+       text-xl font-black, bg-white/5·/15·/20). Keeps the persistent bar continuous across the app. */
+    html{scroll-padding-top:84px}
+    .appbar{position:sticky;top:0;z-index:200;background:linear-gradient(to bottom right,#0A2540,#1E5DB8);color:#fff;padding:20px 0;box-shadow:0 10px 15px -3px rgba(0,0,0,.1),0 4px 6px -4px rgba(0,0,0,.1);font-family:'Heebo','Arial',sans-serif}
     .appbar-inner{max-width:1152px;margin:0 auto;padding:0 24px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px}
-    .appbar-brand{display:block;text-decoration:none;color:#fff;line-height:1.2}
-    .appbar-brand-sub{display:block;font-size:.72rem;opacity:.8}
+    .appbar-brand{display:block;text-decoration:none;color:#fff;line-height:1.25}
+    .appbar-brand-sub{display:block;font-size:.75rem;opacity:.8}
     .appbar-brand-title{display:block;font-size:1.25rem;font-weight:900}
     .appbar-nav{display:flex;align-items:center;gap:6px;flex-wrap:wrap;font-size:.875rem}
-    .appbar-link{color:#fff;text-decoration:none;padding:6px 12px;border-radius:8px;background:rgba(255,255,255,.06);transition:background .15s ease}
-    .appbar-link:hover{background:rgba(255,255,255,.16)}
-    .appbar-link.is-active,.appbar-link.active{background:rgba(255,255,255,.22);font-weight:700}
-    .appbar-cta{background:rgba(255,255,255,.12)}
-    .appbar-email{opacity:.9;font-size:.8rem;padding:0 6px;direction:ltr}
-    @media(max-width:640px){.appbar-brand-title{font-size:1.05rem}.appbar-nav{font-size:.8rem;gap:4px}.appbar-link{padding:5px 9px}.appbar-email{display:none}}
+    .appbar-link{color:#fff;text-decoration:none;padding:6px 12px;border-radius:8px;background:rgba(255,255,255,.05);transition:background .15s ease}
+    .appbar-link:hover{background:rgba(255,255,255,.15)}
+    .appbar-link.is-active,.appbar-link.active{background:rgba(255,255,255,.2);font-weight:700}
+    .appbar-cta{background:rgba(255,255,255,.1)}
+    .appbar-email{opacity:.9;font-size:.75rem;padding:0 8px;direction:ltr}
+    @media(max-width:640px){.appbar{padding:14px 0}.appbar-brand-title{font-size:1.05rem}.appbar-nav{font-size:.8rem;gap:4px}.appbar-link{padding:5px 9px}.appbar-email{display:none}}
   </style>
 </head>
 <body>
