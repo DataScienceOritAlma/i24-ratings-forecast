@@ -196,45 +196,6 @@ export default function AnalyticsPage() {
           )}
         </section>
 
-        {/* Model performance — static from RETROSPECTIVE.md */}
-        <section className="bg-white rounded-2xl shadow-card p-6">
-          <h2 className="text-lg font-black text-brand-dark mb-1 flex items-center gap-2">
-            <span>🎯</span> ביצועי המודל
-          </h2>
-          <p className="text-sm text-muted mb-5">
-            נמדד על 1,957 שידורים שהמודל לא ראה (סט בחינה, פברואר→אפריל 2026)
-          </p>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <BigStat value="0.263" label="MAE" sub="טעות ממוצעת" />
-            <BigStat value="0.603" label="R²" sub="60% מוסבר" />
-            <BigStat value="57%" label="±0.2" sub="קרוב לאמת" />
-            <BigStat value="87%" label="±0.5" sub="טווח רחב" />
-          </div>
-        </section>
-
-        {/* Per-segment */}
-        <section className="bg-white rounded-2xl shadow-card p-6">
-          <h2 className="text-lg font-black text-brand-dark mb-1 flex items-center gap-2">
-            <span>🔍</span> איפה המודל חזק / חלש
-          </h2>
-          <p className="text-sm text-muted mb-5">MAE לפי סטטוס תוכנית (נמוך יותר = מדויק יותר)</p>
-          <div className="space-y-3">
-            <SegBar label="שידור חוזר" mae={0.193} maxMae={0.40} note="🟢 הכי מדויק" />
-            <SegBar label="לקט" mae={0.221} maxMae={0.40} />
-            <SegBar label="שידור חי" mae={0.309} maxMae={0.40} note="קהל תנודתי" />
-            <SegBar label="מיוחד / מבזק" mae={0.339} maxMae={0.40} note="🔴 הכי קשה" />
-          </div>
-        </section>
-
-        {/* Insight callout */}
-        <section className="bg-gradient-to-br from-brand-dark to-brand-primary text-white rounded-2xl shadow-card p-6">
-          <div className="text-xs opacity-80 mb-1">תובנה</div>
-          <h3 className="text-xl font-black mb-2">תקרת המודל היא drift של אירועים בלתי-צפויים</h3>
-          <p className="text-sm opacity-90 leading-relaxed">
-            המודל נכשל בעיקר באירועי ברייקינג ביטחוניים (שאגת הארי, מתקפה איראנית) — אירועים שאף מודל
-            היסטורי לא יכול לחזות. ב-87% מהמקרים הרגילים — הטעות בטווח של ±0.5 נקודות רייטינג.
-          </p>
-        </section>
       </div>
     </main>
   );
@@ -253,34 +214,6 @@ function Stat({ n, label, highlight, icon }: { n: number; label: string; highlig
           <div className={`text-xs mt-0.5 ${highlight ? "text-white/90" : "text-muted"}`}>{label}</div>
         </div>
         <div className="text-2xl opacity-80">{icon}</div>
-      </div>
-    </div>
-  );
-}
-
-function BigStat({ value, label, sub }: { value: string; label: string; sub: string }) {
-  return (
-    <div className="bg-slate-50 rounded-xl p-4 transition hover:bg-slate-100">
-      <div className="text-3xl font-black tabular-nums text-brand-primary">{value}</div>
-      <div className="text-sm font-bold text-ink mt-1">{label}</div>
-      <div className="text-xs text-muted">{sub}</div>
-    </div>
-  );
-}
-
-function SegBar({ label, mae, maxMae, note }: { label: string; mae: number; maxMae: number; note?: string }) {
-  const pct = (mae / maxMae) * 100;
-  return (
-    <div>
-      <div className="flex justify-between text-sm mb-1">
-        <span className="font-bold">{label}</span>
-        <span className="tabular-nums">{mae.toFixed(3)} {note && <span className="text-muted text-xs">· {note}</span>}</span>
-      </div>
-      <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
-        <div
-          className="h-full bg-gradient-to-l from-brand-primary to-brand-light rounded-full transition-all duration-700"
-          style={{ width: `${pct}%` }}
-        />
       </div>
     </div>
   );

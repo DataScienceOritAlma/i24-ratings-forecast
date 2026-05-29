@@ -25,8 +25,6 @@ export default function DashboardPage() {
   const [saving, setSaving] = useState(false);
   const [result, setResult] = useState<PredictResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [totalCount, setTotalCount] = useState<number | null>(null);
-  const [weekCount, setWeekCount] = useState<number | null>(null);
   const [recent, setRecent] = useState<RecentPrediction[]>([]);
   const [programAvg, setProgramAvg] = useState<number | null>(null);
 
@@ -62,17 +60,11 @@ export default function DashboardPage() {
         .limit(200);
       if (progs) setPrograms(progs.map((p) => p.name as string));
 
-      const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
-      const [{ count: total }, { count: week }, { data: latest }] = await Promise.all([
-        supabase.from("predictions").select("*", { count: "exact", head: true }),
-        supabase.from("predictions").select("*", { count: "exact", head: true }).gte("created_at", sevenDaysAgo),
-        supabase.from("predictions")
-          .select("id, program_name, target_date, predicted_rating, created_at")
-          .order("created_at", { ascending: false })
-          .limit(5),
-      ]);
-      setTotalCount(total ?? 0);
-      setWeekCount(week ?? 0);
+      const { data: latest } = await supabase
+        .from("predictions")
+        .select("id, program_name, target_date, predicted_rating, created_at")
+        .order("created_at", { ascending: false })
+        .limit(5);
       setRecent((latest ?? []) as unknown as RecentPrediction[]);
     });
   }, [router]);
@@ -148,8 +140,6 @@ export default function DashboardPage() {
             .order("created_at", { ascending: false })
             .limit(5);
           setRecent((latest ?? []) as unknown as RecentPrediction[]);
-          setTotalCount((prev) => (prev ?? 0) + 1);
-          setWeekCount((prev) => (prev ?? 0) + 1);
         } catch (saveErr) {
           console.warn("Failed to save prediction history:", saveErr);
         } finally {
@@ -189,30 +179,6 @@ export default function DashboardPage() {
       <NavBar email={email} title="לוח חיזוי תחזיות" />
 
       <div className="max-w-6xl mx-auto px-6 py-8 space-y-6">
-        {/* KPI strip */}
-        <section className="grid grid-cols-2 md:grid-cols-4 gap-3">
-          <KpiCard
-            icon="📊"
-            value={totalCount === null ? "—" : totalCount.toLocaleString("he-IL")}
-            label="סך תחזיות"
-          />
-          <KpiCard
-            icon="📅"
-            value={weekCount === null ? "—" : weekCount.toLocaleString("he-IL")}
-            label="השבוע"
-            accent
-          />
-          <KpiCard
-            icon="🎯"
-            value="0.263"
-            label="MAE · דיוק המודל"
-          />
-          <KpiCard
-            icon="✅"
-            value="87%"
-            label="בטווח ±0.5"
-          />
-        </section>
 
         {/* Main: form + result */}
         <div className="grid md:grid-cols-5 gap-6">
@@ -544,32 +510,3 @@ export default function DashboardPage() {
   );
 }
 
-function KpiCard({
-  icon, value, label, accent,
-}: { icon: string; value: string; label: string; accent?: boolean }) {
-  return (
-    <div
-      className={`rounded-2xl p-4 shadow-card transition hover:shadow-lg ${
-        accent
-          ? "bg-gradient-to-br from-brand-accent to-orange-500 text-white"
-          : "bg-white"
-      }`}
-    >
-      <div className="flex items-start justify-between">
-        <div>
-          <div
-            className={`text-2xl font-black tabular-nums ${
-              accent ? "" : "text-brand-dark"
-            }`}
-          >
-            {value}
-          </div>
-          <div className={`text-xs mt-0.5 ${accent ? "text-white/90" : "text-muted"}`}>
-            {label}
-          </div>
-        </div>
-        <div className="text-2xl opacity-80">{icon}</div>
-      </div>
-    </div>
-  );
-}
