@@ -131,6 +131,7 @@
 - **`event_classifier.py`** — `classify(headline, date)`: ידיעת חדשות → JSON של אירוע ביטחוני. בסיס לסוכן שמתחזק את `אירועים_מדויקים.csv`.
 - **`chat_agent.py`** — סוכן: שאלה חופשית → LLM מפרסר → המודל חוזה → `explain` עונה. נבדק מול Groq.
 - **חיווט לאפליקציה (שלב 63):** `backend/main.py` — `/predict` מחזיר `explanation`, `/ask` משתמש ב-`llm_extract` (LLM) עם נפילה לרגקס. הכל **graceful** — בלי `GROQ_API_KEY` האפליקציה עובדת כרגיל. הדשבורד מציג בלוק "💡 הסבר". **דרוש:** `GROQ_API_KEY` ב-Environment של Render להפעלה חיה.
+- **`news_agent.py`** (שלב 64) — סוכן חדשות אוטונומי: מושך RSS (ברירת מחדל ynet, `xml.etree`) → מסווג ב-`event_classifier` → מציע אירועים ל-`אירועים_מדויקים.csv`. Human-in-the-loop: dry-run כברירת מחדל, `--apply` כותב.
 
 ### 🌐 Live URLs
 - **GitHub:** https://github.com/DataScienceOritAlma/i24-ratings-forecast (ציבורי)
