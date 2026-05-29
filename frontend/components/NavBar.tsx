@@ -9,15 +9,15 @@ interface Props {
   title?: string;
 }
 
-const NAV = [
+const NAV: { href: string; label: string; key: string; external?: boolean }[] = [
   { href: "/dashboard", label: "🎯 חיזוי", key: "dashboard" },
   { href: "/chat", label: "💬 שאל", key: "chat" },
   { href: "/history", label: "📚 היסטוריה", key: "history" },
   { href: "/analytics", label: "📊 אנליטיקה", key: "analytics" },
-  { href: "/about", label: "אודות", key: "about" },
-  { href: "/numbers", label: "מספרים", key: "numbers" },
-  { href: "/technology", label: "טכנולוגיה", key: "technology" },
-  { href: "/infographic", label: "🔮 מקסם למדע", key: "infographic" },
+  { href: "/index.html#about", label: "אודות", key: "about", external: true },
+  { href: "/index.html#stats", label: "מספרים", key: "numbers", external: true },
+  { href: "/index.html#tech", label: "טכנולוגיה", key: "technology", external: true },
+  { href: "/infographic.html", label: "🔮 מקסם למדע", key: "infographic", external: true },
   { href: "/account", label: "👤 חשבון", key: "account" },
 ];
 
@@ -41,16 +41,13 @@ export default function NavBar({ email, title = "לוח חיזוי תחזיות"
           {NAV.map((item) => {
             const active = pathname === item.href ||
               (item.href !== "/dashboard" && pathname.startsWith(item.href));
-            return (
-              <Link
-                key={item.key}
-                href={item.href}
-                className={`px-3 py-1.5 rounded-lg transition ${
-                  active ? "bg-white/20 font-bold" : "bg-white/5 hover:bg-white/15"
-                }`}
-              >
-                {item.label}
-              </Link>
+            const cls = `px-3 py-1.5 rounded-lg transition ${
+              active ? "bg-white/20 font-bold" : "bg-white/5 hover:bg-white/15"
+            }`;
+            return item.external ? (
+              <a key={item.key} href={item.href} target="_blank" rel="noopener" className={cls}>{item.label}</a>
+            ) : (
+              <Link key={item.key} href={item.href} className={cls}>{item.label}</Link>
             );
           })}
           {email ? (
