@@ -7,14 +7,6 @@ import { supabase } from "@/lib/supabase";
 import { predict, type PredictResponse } from "@/lib/api";
 import NavBar from "@/components/NavBar";
 
-interface RecentPrediction {
-  id: string;
-  program_name: string;
-  target_date: string;
-  predicted_rating: number;
-  created_at: string;
-}
-
 export default function DashboardPage() {
   const router = useRouter();
   const [email, setEmail] = useState<string | null>(null);
@@ -25,7 +17,6 @@ export default function DashboardPage() {
   const [saving, setSaving] = useState(false);
   const [result, setResult] = useState<PredictResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [recent, setRecent] = useState<RecentPrediction[]>([]);
   const [programAvg, setProgramAvg] = useState<number | null>(null);
 
   const [programName, setProgramName] = useState("קבינט שישי");
@@ -59,13 +50,6 @@ export default function DashboardPage() {
         .order("n_broadcasts", { ascending: false })
         .limit(200);
       if (progs) setPrograms(progs.map((p) => p.name as string));
-
-      const { data: latest } = await supabase
-        .from("predictions")
-        .select("id, program_name, target_date, predicted_rating, created_at")
-        .order("created_at", { ascending: false })
-        .limit(5);
-      setRecent((latest ?? []) as unknown as RecentPrediction[]);
     });
   }, [router]);
 
@@ -132,14 +116,6 @@ export default function DashboardPage() {
             model_version: r.model,
             uncertainty_source: r.uncertainty_source,
           });
-
-          // Refresh recents
-          const { data: latest } = await supabase
-            .from("predictions")
-            .select("id, program_name, target_date, predicted_rating, created_at")
-            .order("created_at", { ascending: false })
-            .limit(5);
-          setRecent((latest ?? []) as unknown as RecentPrediction[]);
         } catch (saveErr) {
           console.warn("Failed to save prediction history:", saveErr);
         } finally {
@@ -468,43 +444,6 @@ export default function DashboardPage() {
           </section>
         </div>
 
-        {/* Recent predictions strip */}
-        {recent.length > 0 && (
-          <section className="bg-white rounded-2xl shadow-card p-6">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="font-black text-brand-dark flex items-center gap-2">
-                <span>📚</span> תחזיות אחרונות
-              </h3>
-              <Link
-                href="/history"
-                className="text-sm text-brand-primary hover:text-brand-dark font-bold"
-              >
-                כל ההיסטוריה ←
-              </Link>
-            </div>
-            <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-              {recent.map((p) => (
-                <div
-                  key={p.id}
-                  className="bg-slate-50 hover:bg-slate-100 rounded-xl p-3 transition cursor-default"
-                >
-                  <div className="text-xs text-muted mb-1 truncate" title={p.program_name}>
-                    {p.program_name}
-                  </div>
-                  <div className="text-2xl font-black text-brand-dark tabular-nums">
-                    {Number(p.predicted_rating).toFixed(2)}
-                  </div>
-                  <div className="text-xs text-muted mt-1">
-                    {new Date(p.target_date).toLocaleDateString("he-IL", {
-                      day: "numeric",
-                      month: "short",
-                    })}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </section>
-        )}
       </div>
     </main>
   );
