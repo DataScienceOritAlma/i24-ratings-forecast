@@ -22,6 +22,7 @@ export interface PredictResponse {
   confidence_pct: number;
   uncertainty_source: string;
   metadata: Record<string, unknown>;
+  explanation?: string | null;         // LLM natural-language explanation (if enabled)
 }
 
 export async function predict(req: PredictRequest): Promise<PredictResponse> {

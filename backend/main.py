@@ -38,6 +38,19 @@ from prediction_logic import (  # noqa: E402
 
 load_dotenv(ROOT / ".env")
 
+# Optional LLM layer (explanation + chatbot). Degrades gracefully: if the import
+# fails or GROQ_API_KEY is unset, the API still serves predictions without it.
+try:
+    from llm_client import chat_json  # noqa: E402
+    from explain import explain_prediction  # noqa: E402
+    _LLM_OK = True
+except Exception:
+    _LLM_OK = False
+
+
+def _llm_ready() -> bool:
+    return _LLM_OK and bool(os.environ.get("GROQ_API_KEY"))
+
 
 # ============================================================
 # Startup — load model + history once
@@ -208,6 +221,35 @@ def detect_scenario(text: str) -> str:
     return "routine"
 
 
+def llm_extract(q: str):
+    """LLM-based intent parsing for /ask (replaces regex when GROQ is available).
+
+    Returns (program_name, target_date, scenario) or None on any failure, so the
+    caller can fall back to the regex extractors.
+    """
+    if not _llm_ready():
+        return None
+    try:
+        programs = sorted(HISTORY_DF["שם תוכנית_מקור"].dropna().unique().tolist())
+        today = date_t.today().isoformat()
+        system = (
+            "חלץ מהשאלה בעברית והחזר JSON עם המפתחות: "
+            "program_name (התאמה מדויקת לאחד מהשמות ברשימה, או null), "
+            f"target_date (פורמט YYYY-MM-DD; היום הוא {today}), "
+            "scenario ('special_event' אם מוזכר אירוע/מלחמה/הסלמה/מבצע, אחרת 'routine').\n"
+            f"רשימת התוכניות: {programs}"
+        )
+        r = chat_json([{"role": "system", "content": system},
+                       {"role": "user", "content": q}])
+        prog = r.get("program_name") or None
+        td = pd.to_datetime(r.get("target_date"), errors="coerce")
+        target = td.date() if pd.notna(td) else None
+        scenario = r.get("scenario") if r.get("scenario") in ("routine", "special_event") else "routine"
+        return prog, target, scenario
+    except Exception:
+        return None
+
+
 # ============================================================
 # FastAPI app
 # ============================================================
@@ -252,6 +294,7 @@ class PredictResponse(BaseModel):
     confidence_pct: int = 80
     uncertainty_source: str
     metadata: dict
+    explanation: Optional[str] = None   # LLM natural-language explanation (null if GROQ key unset)
 
 
 class AskRequest(BaseModel):
@@ -305,9 +348,14 @@ def health():
 @app.post("/ask", response_model=AskResponse)
 def ask(req: AskRequest):
     q = req.question.strip()
-    program = extract_program(q)
-    target = extract_date_he(q) or (date_t.today() + timedelta(days=7))
-    scenario = detect_scenario(q)
+    parsed = llm_extract(q)            # LLM parsing if GROQ available
+    if parsed and parsed[0]:
+        program, target, scenario = parsed
+        target = target or (date_t.today() + timedelta(days=7))
+    else:                             # graceful fallback to the regex extractors
+        program = extract_program(q)
+        target = extract_date_he(q) or (date_t.today() + timedelta(days=7))
+        scenario = detect_scenario(q)
 
     # Confidence based on what we managed to extract
     if program and any(kw in q for kw in ["מחר", "היום", "שבוע", "ראשון", "שני", "שלישי",
@@ -549,6 +597,17 @@ def predict(req: PredictRequest):
     pred_raw = pred * reception_pct
     viewers = rating_to_viewers(pred_raw)
 
+    explanation = None
+    if _llm_ready():
+        try:
+            explanation = explain_prediction(
+                program=req.program_name, weekday=weekday_he, hour=h, predicted=pred,
+                program_avg=float(feats["lag_program_mean"]),
+                slot_avg=float(feats["lag_slot_mean"]), is_security=is_security,
+            )
+        except Exception:
+            explanation = None  # never let the explanation layer break a prediction
+
     return PredictResponse(
         predicted_rating=round(pred, 3),                       # adjusted (model target)
         prediction_low=round(max(0, pred - uncert["p80_half_width"]), 3),
@@ -568,4 +627,5 @@ def predict(req: PredictRequest):
             "days_ahead": days_ahead,
             "n_uncertainty_basis": uncert["n_used"],
         },
+        explanation=explanation,
     )

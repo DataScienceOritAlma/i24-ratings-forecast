@@ -457,6 +457,13 @@ export default function DashboardPage() {
                     </div>
                   </div>
 
+                  {result.explanation && (
+                    <div className="mt-4 bg-white/10 backdrop-blur rounded-xl p-3 text-sm leading-relaxed">
+                      <div className="text-xs opacity-70 mb-1">💡 הסבר</div>
+                      {result.explanation}
+                    </div>
+                  )}
+
                   <div className="mt-4 text-xs opacity-70 border-t border-white/20 pt-3 flex justify-between">
                     <span>{result.model}</span>
                     <span>{saving ? "שומר..." : "נשמר ✓"}</span>
