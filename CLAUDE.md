@@ -125,6 +125,12 @@
 - **`compare_severity.py`** — סקריפט ההשוואה one-hot↔severity.
 - ⚠️ **severity אינו פיצ'ר במודל** (שלב 59): ניסוי הראה שהוא מזיק (MAE 0.30→0.41) כי עוצמה סמנטית ≠ השפעה per-broadcast (אפקט משך). נשמר לשכבת הסבר/צ'אטבוט עתידית, לא לחיזוי הרייטינג.
 
+### שכבת LLM — agents (שלב 62, 2026-05-29)
+- **`llm_client.py`** — קליינט Groq משותף (`chat`/`chat_json`, retry-on-429, JSON). בסיס לכל פיצ'רי ה-LLM.
+- **`explain.py`** — `explain_prediction(...)`: הסבר עברי קצר לתחזית, מבוסס-עובדות בלבד (ללא הזיות).
+- **`event_classifier.py`** — `classify(headline, date)`: ידיעת חדשות → JSON של אירוע ביטחוני. בסיס לסוכן שמתחזק את `אירועים_מדויקים.csv`.
+- **`chat_agent.py`** — סוכן: שאלה חופשית → LLM מפרסר → המודל חוזה → `explain` עונה. כולם standalone+נבדקו מול Groq; טרם מחוברים לאפליקציה החיה.
+
 ### 🌐 Live URLs
 - **GitHub:** https://github.com/DataScienceOritAlma/i24-ratings-forecast (ציבורי)
 - **Streamlit:** https://i24-ratings-orit.streamlit.app (סיסמה: `i24-2026-orit`)
