@@ -58,6 +58,8 @@
 - `frontend/app/dashboard/page.tsx` — טופס חיזוי + תוצאה (KPI strip, confidence bar, date shortcuts, recent-5)
 - `frontend/app/chat/page.tsx`, `history/page.tsx`, `analytics/page.tsx`, `account/page.tsx` — 4 מסכי-אזור-מחובר
 - `frontend/app/robots.ts` + `sitemap.ts` — SEO scaffolding (חוסם נתיבים מאחורי auth)
+- `frontend/components/NavBar.tsx` — הסרגל העליון של האזור-המחובר (גרדיאנט כהה, כפתורי-גלולה)
+- `frontend/public/index.html` + `infographic.html` — דפי הוויטרינה הסטטיים (Vanilla JS). **שלב 72:** נושאים `appbar` סטטי **זהה ויזואלית** ל-NavBar; ניווט same-tab משני הכיוונים (אין יותר `target="_blank"`). סרגל **מודע-לחיבור**: סקריפט module טוען Supabase מ-CDN, קורא session מ-localStorage המשותף, ומחליף "התחברות"→מייל+"יציאה" (מוגן `try/catch`). זו הדרך לאחד את הסרגל בלי פורט React (גישת ה-iframe/ראוטים נכשלה, שלבים 70-71)
 - `frontend/lib/supabase.ts` — Supabase JS client
 - `frontend/lib/api.ts` — קליינט ל-Backend FastAPI
 - `frontend/tailwind.config.ts` — מותג: brand-primary #1E5DB8, brand-accent #FF6B35

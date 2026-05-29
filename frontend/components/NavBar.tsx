@@ -45,7 +45,7 @@ export default function NavBar({ email, title = "לוח חיזוי תחזיות"
               active ? "bg-white/20 font-bold" : "bg-white/5 hover:bg-white/15"
             }`;
             return item.external ? (
-              <a key={item.key} href={item.href} target="_blank" rel="noopener" className={cls}>{item.label}</a>
+              <a key={item.key} href={item.href} className={cls}>{item.label}</a>
             ) : (
               <Link key={item.key} href={item.href} className={cls}>{item.label}</Link>
             );

@@ -140,7 +140,7 @@
 
   // ===== Scroll-spy: highlight active nav link =====
   function setupScrollSpy() {
-    const links = document.querySelectorAll('.nav-links a[data-spy]');
+    const links = document.querySelectorAll('.appbar-nav a[data-spy]');
     if (!links.length) return;
     const map = {};
     links.forEach(a => { map[a.getAttribute('data-spy')] = a; });
