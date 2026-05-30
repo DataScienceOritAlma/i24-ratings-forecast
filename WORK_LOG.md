@@ -5,6 +5,28 @@
 
 ---
 
+## 2026-05-30 — שלב 77: רווחי quantile + conformal calibration (המלצה #1 מ-DEEP_ANALYSIS)
+
+יישום של ההמלצה הראשונה מ-`DEEP_ANALYSIS.md §F`: החלפת ה-CI הנוכחי (`pred ± 1.28·std_of_slot`, שהשיג ~54% כיסוי בפועל לעומת 80% שטענו) ברווחי quantile עם conformal calibration.
+
+### קבצים שנוצרו
+- **`train_quantile_models.py`** — מאמן שני מודלי `HistGradientBoostingRegressor` עם `loss="quantile"` (q=0.10, q=0.90) על אותם פיצ'רים של המודל בייצור. פיצול כרונולוגי: 85% fit + 15% calibration set (הסט האחרון בזמן — קירוב מציאותי ל"דאטה עתידי"). מחשב conformal offsets כ-90-percentile של הפער בכל צד.
+- **`model_quantiles.joblib`** (2.4 MB) — מכיל את `pipe_p10`, `pipe_p90`, `offset_low`, `offset_high`, + מטא-דאטה (target=`רייטינג מותאם`, feature_cols, coverage results).
+
+### תוצאות הקליברציה (מתוך ה-joblib)
+| מדד | Raw | Calibrated |
+|---|---|---|
+| Coverage | **54.2%** | **79.9%** ✓ |
+| Mean width | 0.640 | 1.022 |
+
+- `offset_low = 0.054`, `offset_high = 0.328` — **אסימטרי**, בדיוק כפי שצופה DEEP_ANALYSIS: פספוסים בעיקר כלפי מעלה (קפיצות אירועים).
+- מאומן על 8,284 שורות, מכויל על 1,462.
+
+### הבא
+חיווט ל-backend (`backend/main.py`): טעינת `model_quantiles.joblib` ב-startup, והחזרת `prediction_low/high` מ-quantile + offset במקום מ-slot-std. הליטוש הזה לא בקומיט הזה.
+
+---
+
 ## 2026-05-30 — שלב 76: הלימה ויזואלית של דפי הוויטרינה לאסתטיקת האפליקציה
 
 פידבק אורית: "הנראות נראית אחרת החל מ-/about, נראה כאילו יוצאים לדפים אחרים". הסרגל אכן זהה (שלבים 72-74), אבל מתחתיו ב-/about יש hero כהה שיווקי (gradient + 85vh + כפתורי CTA), וב-/infographic יש `pi-header` כהה דומה. הניגוד מול הדשבורד (slate בהיר + כרטיסי-לבן) הוא שיוצר את התחושה.
