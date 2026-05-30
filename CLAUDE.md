@@ -68,7 +68,7 @@
 - הרצה: `cd frontend && npm install && npm run dev` → http://localhost:3000
 
 ### Backend (FastAPI ML Service — שלב 2, 2026-05-21)
-- `backend/main.py` — FastAPI app: `/health`, `/predict`, `/docs`. טוען model_saved.joblib + היסטוריה מ-Supabase ב-startup. **תרחיש `scenario`:** `routine` או `special_event` (=אירוע ביטחוני; מדליק `is_security`, ≈+39%). חגים אינם תרחיש (הוסרו, שלב 57)
+- `backend/main.py` — FastAPI app: `/health`, `/predict`, `/docs`. טוען `model_saved.joblib` + `model_quantiles.joblib` (אופציונלי, שלב 78) + היסטוריה מ-Supabase ב-startup. **תרחיש `scenario`:** `routine` או `special_event` (=אירוע ביטחוני; מדליק `is_security`, ≈+39%). חגים אינם תרחיש (הוסרו, שלב 57). **רווחי `prediction_low/high`** (שלב 78): מחושבים מ-quantile P10/P90 + conformal offsets (`[-0.054, +0.328]`, כיסוי 79.9%) אם הקובץ קיים; אחרת נופלים חיננית ל-CI הישן (slot_std).
 - `backend/prediction_logic.py` — חישוב lag features, slot uncertainty, trend (פורט מ-utils/predict.py בלי תלות ב-Streamlit)
 - `backend/requirements.txt` — FastAPI · uvicorn · sklearn · pandas · psycopg · dotenv
 - `backend/render.yaml` — תצורת פריסה אוטומטית ל-Render.com
@@ -108,6 +108,8 @@
 - **`utils/style.py`** (חדש) — מערכת עיצוב מאוחדת (Heebo, גרדיאנטים, hover)
 - **`train_and_save_model.py`** — מאמן את HistGradientBoosting ושומר ל-joblib. **TARGET = `רייטינג מותאם`** (panel-adjusted, ראה שלב 52)
 - **`model_saved.joblib`** (1.2MB) — הצנרת המאומנת. מטא-דאטה כולל `target_name`, `target_kind="adjusted"`, `expected_test_mae=0.300`
+- **`train_quantile_models.py`** (שלב 77, 2026-05-30) — מאמן P10/P90 (HistGB עם loss=quantile), 85/15 split כרונולוגי לחיתוך-קליברציה, מחשב conformal offsets כ-90th-pctile של פערים בכל קצה. מפיק `model_quantiles.joblib`.
+- **`model_quantiles.joblib`** (2.4MB) — `pipe_p10`, `pipe_p90`, `offset_low=0.054`, `offset_high=0.328`. כיסוי מכויל 79.9% (יעד 80%). נטען ב-backend (שלב 78) להפקת `prediction_low/high`.
 - `model_train_all_v4_adjusted.py` + `MODEL_REPORT_ALL_v4_adjusted.md` — השוואת 19 המודלים על Y המותאם
 - `predictions_all_v4_adjusted.xlsx` — חיזויי V4 על test set
 

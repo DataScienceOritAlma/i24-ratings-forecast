@@ -64,6 +64,23 @@ MODEL_NAME = _MODEL_OBJ["model_name"]
 EXPECTED_MAE = _MODEL_OBJ["expected_test_mae"]
 print(f"[startup] ✓ {MODEL_NAME}, expected MAE = {EXPECTED_MAE}")
 
+# Conformal-calibrated quantile models for honest 80% prediction intervals.
+# See DEEP_ANALYSIS.md §F and train_quantile_models.py. If the file is missing,
+# /predict gracefully falls back to the std-of-slot interval.
+QUANTILE_PATH = ROOT / "model_quantiles.joblib"
+_QUANTILE_OBJ = None
+if QUANTILE_PATH.exists():
+    try:
+        _QUANTILE_OBJ = joblib.load(QUANTILE_PATH)
+        print(f"[startup] ✓ Quantile bundle loaded "
+              f"(calibrated coverage={_QUANTILE_OBJ['cal_coverage_calibrated']:.1%}, "
+              f"offsets [-{_QUANTILE_OBJ['offset_low']:.3f}, +{_QUANTILE_OBJ['offset_high']:.3f}])")
+    except Exception as e:
+        print(f"[startup] ⚠️  Failed to load quantile bundle: {e} → fallback to std interval")
+        _QUANTILE_OBJ = None
+else:
+    print("[startup] ⚠️  model_quantiles.joblib not found → fallback to std interval")
+
 
 def _load_history() -> pd.DataFrame:
     """Load broadcasts from Supabase (or fall back to local xlsx)."""
@@ -591,6 +608,24 @@ def predict(req: PredictRequest):
     weekday_he = date_to_weekday_he(req.target_date)
     uncert = compute_slot_uncertainty(HISTORY_DF, req.program_name, h, weekday_he)
 
+    # Prediction interval — prefer conformal-calibrated quantile models (~80% empirical
+    # coverage, validated). Falls back to symmetric std-of-slot if the bundle is missing.
+    if _QUANTILE_OBJ is not None:
+        try:
+            p10_raw = float(_QUANTILE_OBJ["pipe_p10"].predict(feature_row)[0])
+            p90_raw = float(_QUANTILE_OBJ["pipe_p90"].predict(feature_row)[0])
+            low = max(0.0, p10_raw - _QUANTILE_OBJ["offset_low"])
+            high = max(low, p90_raw + _QUANTILE_OBJ["offset_high"])
+            interval_method = "conformal_quantile"
+        except Exception:
+            low = max(0.0, pred - uncert["p80_half_width"])
+            high = pred + uncert["p80_half_width"]
+            interval_method = "slot_std_fallback"
+    else:
+        low = max(0.0, pred - uncert["p80_half_width"])
+        high = pred + uncert["p80_half_width"]
+        interval_method = "slot_std"
+
     # Project back to "raw rating" scale for households/viewers calibration.
     # The viewer-conversion ratio (hh_per_point=25000) was calibrated on raw, panel-measured ratings.
     reception_pct = estimate_reception_pct(req.target_date)
@@ -610,8 +645,8 @@ def predict(req: PredictRequest):
 
     return PredictResponse(
         predicted_rating=round(pred, 3),                       # adjusted (model target)
-        prediction_low=round(max(0, pred - uncert["p80_half_width"]), 3),
-        prediction_high=round(pred + uncert["p80_half_width"], 3),
+        prediction_low=round(low, 3),
+        prediction_high=round(high, 3),
         predicted_rating_raw=round(pred_raw, 3),               # derived raw
         reception_pct_used=reception_pct,
         estimated_households=viewers["households"],
@@ -619,13 +654,15 @@ def predict(req: PredictRequest):
         model=MODEL_NAME,
         target_kind=_MODEL_OBJ.get("target_kind", "adjusted"),
         confidence_pct=80,
-        uncertainty_source=uncert["source"],
+        uncertainty_source=interval_method,
         metadata={
             "weekday": weekday_he,
             "hour": h,
             "scenario": req.scenario,
             "days_ahead": days_ahead,
-            "n_uncertainty_basis": uncert["n_used"],
+            "interval_method": interval_method,
+            "slot_std_basis_n": uncert["n_used"],
+            "slot_std_source": uncert["source"],
         },
         explanation=explanation,
     )

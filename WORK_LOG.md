@@ -5,6 +5,29 @@
 
 ---
 
+## 2026-05-30 — שלב 78: חיווט רווחי-quantile ל-`/predict` (סוגר את ההמלצה #1)
+
+שלב 77 בנה את `train_quantile_models.py` + `model_quantiles.joblib`, אבל ציין במפורש "החיווט ל-backend לא בקומיט הזה". זה הקומיט שסוגר אותו.
+
+### שינוי
+- **`backend/main.py` startup:** טעינת `model_quantiles.joblib` אם קיים. הדפסה: `[startup] ✓ Quantile bundle loaded (calibrated coverage=79.9%, offsets [-0.054, +0.328])`. אם הקובץ חסר/קורס — חיננית נופלים ל-CI הישן (slot_std).
+- **`backend/main.py` `/predict`:** מחשב `low = P10 − 0.054`, `high = P90 + 0.328`. שומר `interval_method` ב-`metadata` לשקיפות (`conformal_quantile` / `slot_std` / `slot_std_fallback`).
+- **חוזה ה-API לא השתנה** — אותו `prediction_low/high` כמו קודם. Frontend עובד כמו שהוא.
+
+### אימות
+- Smoke-test על `קבינט שישי` 2026-06-05 19:50 שגרה (history מ-Supabase, 9,311 שורות): חיזוי **3.73**, רווח אסימטרי **[1.10, 4.51]**, `method=conformal_quantile`. האסימטריה משקפת את ה-offsets (פס תחתון קצר 0.054, פס עליון רחב 0.328).
+- אותה בקשה עם `special_event`: חיזוי קופץ ל-**4.49**, רווח **[1.05, 4.81]** — רחב יותר כלפי מעלה, כצפוי באירועים ביטחוניים.
+- Startup log אישר: `[startup] ✓ Quantile bundle loaded (calibrated coverage=79.9%, offsets [-0.054, +0.328])`.
+
+### לעלות לפרודקשן
+1. push (כולל `model_quantiles.joblib` 2.4MB) → Render יעלה אוטומטית
+2. בדיקת לוג: `[startup] ✓ Quantile bundle loaded` — אם רואים `⚠️  model_quantiles.joblib not found` הקובץ לא הגיע (Render-deploy טבעוני; ייתכן שצריך LFS)
+
+### למשתמשת
+ה-+/- ליד החיזוי באפליקציה עכשיו אמין: לפני זה היה ב-56% כיסוי (אמרנו "אני בטוחה" וטעינו במחצית), עכשיו ב-80% — ועם רוחב שיכול להיות אסימטרי כשהמודל "מריח" שאירוע יכול להיות גדול יותר ממה שהוא חזה.
+
+---
+
 ## 2026-05-30 — שלב 77: רווחי quantile + conformal calibration (המלצה #1 מ-DEEP_ANALYSIS)
 
 יישום של ההמלצה הראשונה מ-`DEEP_ANALYSIS.md §F`: החלפת ה-CI הנוכחי (`pred ± 1.28·std_of_slot`, שהשיג ~54% כיסוי בפועל לעומת 80% שטענו) ברווחי quantile עם conformal calibration.
