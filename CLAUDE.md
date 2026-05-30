@@ -63,6 +63,7 @@
 - `frontend/lib/supabase.ts` — Supabase JS client
 - `frontend/lib/api.ts` — קליינט ל-Backend FastAPI
 - `frontend/tailwind.config.ts` — מותג: brand-primary #1E5DB8, brand-accent #FF6B35
+- `frontend/next.config.ts` — rewrites: `/about` → `/index.html`, `/infographic` → `/infographic.html` (כתובות נקיות בלי `.html`, מגישות את הקבצים הסטטיים כמו שהם — לא ראוטים של React)
 - הרצה: `cd frontend && npm install && npm run dev` → http://localhost:3000
 
 ### Backend (FastAPI ML Service — שלב 2, 2026-05-21)

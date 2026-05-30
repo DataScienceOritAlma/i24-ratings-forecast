@@ -1,7 +1,23 @@
 # Work Log — EDA & Event Tagging for i24 Ratings Project
 
 > תיעוד שלב-אחר-שלב של כל מה שנעשה בפרויקט.
-> עודכן לאחרונה: 2026-05-29
+> עודכן לאחרונה: 2026-05-30
+
+---
+
+## 2026-05-30 — שלב 74: כתובות נקיות לדפי הוויטרינה (Next.js rewrites)
+
+`.html` בשורת הכתובת היה הסימן האחרון של "יציאה מהאפליקציה". פתרון נקי וקל: Next.js rewrites מגישות את הקבצים הסטטיים בכתובות יפות, **בלי לפרק לראוטים של React** (=בלי הסיכון שנשבר בשלבים 70-71).
+
+### השינוי
+- `frontend/next.config.ts` — `rewrites()`: `/about → /index.html`, `/infographic → /infographic.html`.
+- כל הקישורים עודכנו לכתובות הנקיות: `NavBar.tsx`, `app/page.tsx`, `public/index.html` (appbar + hero + link-card), `public/infographic.html` (appbar).
+- הכתובות הישנות (`/index.html`, `/infographic.html`) ממשיכות לעבוד — backward compat.
+
+### אימות
+- 200 על: `/about`, `/infographic`, `/index.html`, `/infographic.html`, וכל הנכסים (`/style.css`, `/script.js`, `/viz/...`). נתיבים יחסיים בקבצים הסטטיים נפתרים נכון כי הכתובות הנקיות חד-סגמנטיות והנכסים יושבים בשורש.
+- צילומי מסך של `/about` ו-`/infographic` — מרונדרים נכון (font, CSS, SVG).
+- `npm run build` נקי.
 
 ---
 
