@@ -37,19 +37,50 @@
     /* Pixel-matched to the React app's NavBar (Tailwind: py-5, max-w-6xl, px-6, gap-3 / nav gap-1.5,
        text-xl font-black, bg-white/5·/15·/20). Keeps the persistent bar continuous across the app. */
     html{scroll-padding-top:84px}
-    .appbar{position:sticky;top:0;z-index:200;background:linear-gradient(to bottom right,#0A2540,#1E5DB8);color:#fff;padding:20px 0;box-shadow:0 10px 15px -3px rgba(0,0,0,.1),0 4px 6px -4px rgba(0,0,0,.1);font-family:'Heebo','Arial',sans-serif}
+    /* Tailwind-matched line-heights so the navbar HEIGHT is byte-identical to the
+       React NavBar — no vertical jump when navigating between React and static pages. */
+    .appbar{position:sticky;top:0;z-index:200;background:linear-gradient(to bottom right,#0A2540,#1E5DB8);color:#fff;padding:20px 0;box-shadow:0 10px 15px -3px rgba(0,0,0,.1),0 4px 6px -4px rgba(0,0,0,.1);font-family:'Heebo','Arial',sans-serif;line-height:1.5}
     .appbar-inner{max-width:1152px;margin:0 auto;padding:0 24px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px}
-    .appbar-brand{display:block;text-decoration:none;color:#fff;line-height:1.25}
-    .appbar-brand-sub{display:block;font-size:.75rem;opacity:.8}
-    .appbar-brand-title{display:block;font-size:1.25rem;font-weight:900}
-    .appbar-nav{display:flex;align-items:center;gap:6px;flex-wrap:wrap;font-size:.875rem}
-    .appbar-link{color:#fff;text-decoration:none;padding:6px 12px;border-radius:8px;background:rgba(255,255,255,.05);transition:background .15s ease}
+    .appbar-brand{display:block;text-decoration:none;color:#fff}
+    .appbar-brand-sub{display:block;font-size:.75rem;line-height:1rem;opacity:.8}    /* = Tailwind text-xs */
+    .appbar-brand-title{display:block;font-size:1.25rem;line-height:1.75rem;font-weight:900}  /* = Tailwind text-xl + font-black */
+    .appbar-nav{display:flex;align-items:center;gap:6px;flex-wrap:wrap;font-size:.875rem;line-height:1.25rem}  /* = Tailwind text-sm */
+    .appbar-link{color:#fff;text-decoration:none;padding:6px 12px;border-radius:8px;background:rgba(255,255,255,.05);transition:background .15s ease;line-height:1.25rem;font-family:inherit;font-size:inherit;border:0;cursor:pointer}
     .appbar-link:hover{background:rgba(255,255,255,.15)}
     .appbar-link.is-active,.appbar-link.active{background:rgba(255,255,255,.2);font-weight:700}
     .appbar-cta{background:rgba(255,255,255,.1)}
-    .appbar-email{opacity:.9;font-size:.75rem;padding:0 8px;direction:ltr}
-    @media(max-width:640px){.appbar{padding:14px 0}.appbar-brand-title{font-size:1.05rem}.appbar-nav{font-size:.8rem;gap:4px}.appbar-link{padding:5px 9px}.appbar-email{display:none}}
+    .appbar-email{opacity:.9;font-size:.75rem;line-height:1rem;padding:0 8px;direction:ltr}
 
+    /* Synchronous auth-state visibility: the inline <head> script reads localStorage
+       and sets data-auth on <html> before first paint, so the right state is shown
+       from the very first frame (no "התחברות → email" flash on navigation). */
+    .appbar-auth .appbar-email,
+    .appbar-auth .appbar-logout{display:none}
+    [data-auth="1"] .appbar-auth .appbar-login{display:none}
+    [data-auth="1"] .appbar-auth .appbar-email{display:inline}
+    [data-auth="1"] .appbar-auth .appbar-logout{display:inline-block}
+
+    @media(max-width:640px){.appbar{padding:14px 0}.appbar-brand-title{font-size:1.05rem;line-height:1.5rem}.appbar-nav{font-size:.8rem;gap:4px}.appbar-link{padding:5px 9px}.appbar-email{display:none!important}}
+  </style>
+  <!-- Sync auth detection (runs before <body> parses so the navbar's first paint
+       already shows email+logout if the user is logged in — no async flash). -->
+  <script>
+    (function(){
+      try {
+        var raw = localStorage.getItem('sb-bfnmaogcxdgnaxwjdtny-auth-token');
+        if (!raw) return;
+        var s = JSON.parse(raw);
+        var sess = (s && s.currentSession) ? s.currentSession : s;
+        var email = sess && sess.user && sess.user.email;
+        var exp = sess && (sess.expires_at || sess.expiresAt);
+        if (!email) return;
+        if (exp && Date.now()/1000 > exp + 60) return;
+        document.documentElement.setAttribute('data-auth','1');
+        document.documentElement.setAttribute('data-user-email', email);
+      } catch(e){}
+    })();
+  </script>
+  <style>
     /* App-aligned theme: turn the marketing-style hero + dark tech section into a light,
        card-on-slate look that matches the dashboard. The page feels like part of the app,
        not a separate portfolio site. */
@@ -96,12 +127,16 @@
         <a href="/chat" class="appbar-link">💬 שאל</a>
         <a href="/history" class="appbar-link">📚 היסטוריה</a>
         <a href="/analytics" class="appbar-link">📊 אנליטיקה</a>
-        <a href="#about" data-spy="about" class="appbar-link">אודות</a>
+        <a href="#about" data-spy="about" class="appbar-link is-active">אודות</a>
         <a href="#stats" data-spy="stats" class="appbar-link">מספרים</a>
         <a href="#tech" data-spy="tech" class="appbar-link">טכנולוגיה</a>
         <a href="/infographic" class="appbar-link">🔮 מקסם למדע</a>
         <a href="/account" class="appbar-link">👤 חשבון</a>
-        <span id="appbar-auth"><a href="/login" class="appbar-link appbar-cta">התחברות</a></span>
+        <span id="appbar-auth" class="appbar-auth">
+          <a href="/login" class="appbar-link appbar-cta appbar-login">התחברות</a>
+          <span class="appbar-email"></span>
+          <button type="button" class="appbar-link appbar-cta appbar-logout">יציאה</button>
+        </span>
       </nav>
     </div>
   </header>
@@ -372,36 +407,25 @@
 
   <script src="script.js"></script>
 
-  <!-- Auth-aware navbar: if logged in (shared same-origin Supabase session), show email + logout.
-       Fully guarded — any failure keeps the default "התחברות" link. -->
-  <script type="module">
-    try {
-      const { createClient } = await import("https://esm.sh/@supabase/supabase-js@2");
-      const sb = createClient(
-        "https://bfnmaogcxdgnaxwjdtny.supabase.co",
-        "sb_publishable_7RMhqEoPZs73M1ZSbP0Uww_YLE9Nv76",
-        { auth: { persistSession: true, autoRefreshToken: false } }
-      );
-      const { data } = await sb.auth.getSession();
-      const session = data && data.session;
-      const slot = document.getElementById("appbar-auth");
-      if (session && slot) {
-        slot.textContent = "";
-        const email = document.createElement("span");
-        email.className = "appbar-email";
-        email.textContent = session.user.email || "";
-        const out = document.createElement("button");
-        out.type = "button";
-        out.className = "appbar-link appbar-cta";
-        out.textContent = "יציאה";
-        out.addEventListener("click", async () => {
-          try { await sb.auth.signOut(); } catch (e) {}
-          location.href = "/";
-        });
-        slot.appendChild(email);
-        slot.appendChild(out);
-      }
-    } catch (e) { /* keep default "התחברות" link */ }
+  <!-- Auth state was already decided by the sync <head> script (via data-auth on <html>).
+       This just fills the email text and binds logout. Pure localStorage clear on signout. -->
+  <script>
+    (function(){
+      var slot = document.getElementById('appbar-auth');
+      if (!slot) return;
+      var em = slot.querySelector('.appbar-email');
+      var user = document.documentElement.getAttribute('data-user-email');
+      if (em && user) em.textContent = user;
+      var btn = slot.querySelector('.appbar-logout');
+      if (btn) btn.addEventListener('click', function(){
+        try {
+          Object.keys(localStorage).forEach(function(k){
+            if (k.indexOf('sb-') === 0) localStorage.removeItem(k);
+          });
+        } catch(e){}
+        location.href = '/';
+      });
+    })();
   </script>
 </body>
 </html>
