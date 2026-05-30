@@ -47,6 +47,16 @@
     .appbar-cta{background:rgba(255,255,255,.1)}
     .appbar-email{opacity:.9;font-size:.75rem;padding:0 8px;direction:ltr}
     @media(max-width:640px){.appbar{padding:14px 0}.appbar-brand-title{font-size:1.05rem}.appbar-nav{font-size:.8rem;gap:4px}.appbar-link{padding:5px 9px}.appbar-email{display:none}}
+
+    /* App-aligned theme: turn the dark pi-header into a compact light page-header that fits
+       the app's dashboard aesthetic. */
+    .pi-header{background:var(--bg);color:var(--text);padding:32px 0 28px}
+    .pi-header::before{display:none}
+    .pi-title{color:var(--text)}
+    .pi-subtitle{color:var(--text-muted);font-weight:400}
+    .pi-subtitle strong{color:var(--text)}
+    .pi-btn{background:#fff;color:var(--primary-dark);border:1px solid var(--border);box-shadow:none}
+    .pi-btn:hover{background:#fff;border-color:var(--primary);color:var(--primary);transform:translateY(-1px)}
   </style>
 </head>
 <body>

@@ -5,6 +5,45 @@
 
 ---
 
+## 2026-05-30 — שלב 76: הלימה ויזואלית של דפי הוויטרינה לאסתטיקת האפליקציה
+
+פידבק אורית: "הנראות נראית אחרת החל מ-/about, נראה כאילו יוצאים לדפים אחרים". הסרגל אכן זהה (שלבים 72-74), אבל מתחתיו ב-/about יש hero כהה שיווקי (gradient + 85vh + כפתורי CTA), וב-/infographic יש `pi-header` כהה דומה. הניגוד מול הדשבורד (slate בהיר + כרטיסי-לבן) הוא שיוצר את התחושה.
+
+### השינוי (CSS overrides בלבד, בלי שינוי תוכן)
+- **`/about` (index.html):** ה-`.hero` הפך לקומפקטי ובהיר — bg=`--bg`, padding 48px (במקום 100), טקסט כהה, כפתורים בסגנון אפליקציה (כחול-solid + לבן-עם-border), KPIs לבנים עם border-light וצבע primary למספרים. ה-`.section-tech` הוחלף מ-dark ל-`white` עם `tech-cat` בהיר.
+- **`/infographic`:** ה-`pi-header` הפך לכותרת-עמוד בהירה (bg=`--bg`, טקסט כהה, padding 32px). כפתורי `pi-btn` בסגנון אפליקציה.
+
+### אימות
+- צילומי מסך של `/about` ו-`/infographic` (Edge headless): ה-flow עכשיו navbar-כהה → רקע-בהיר → כרטיסי-לבן, בדיוק כמו הדשבורד.
+- אין שינוי במבנה ה-HTML (רק overrides ב-style block) → אפס סיכון רגרסיה.
+
+---
+
+## 2026-05-30 — שלב 75: חקירת מודל בעומק — 10 ניתוחי senior-DS
+
+חקירה מקיפה של המודל הנוכחי (HistGB על `רייטינג מותאם`, test n=1,950, MAE=0.3010, R²=0.619) ברמה שמנטור היה עושה. סקריפט אחד, 10 ניתוחים, דוח אינטגרטיבי + 12 ויזואליזציות + 10 artefacts.
+
+### קבצים שנוצרו
+- **`deep_analysis.py`** — סקריפט מאוחד שמפיק הכל (אידמפוטנטי). טוען דאטה, בונה features, מפצל 80/20 כרונולוגית, מאמן HistGB באותה תצורה של production, ומריץ A-J.
+- **`DEEP_ANALYSIS.md`** — דוח מסכם (29 KB) עם Executive Summary, 10 פרקים, 3 פעולות מומלצות.
+- **`deep_viz/*.png`** — 12 ויזואליזציות (A_permutation_importance, B1_pdp_top6, B2_pdp_2d_interaction, C_cold_start, D1_per_program_top_bottom, D2_program_landscape, E_mixture_of_experts, F_quantile_intervals, G1_residual_diagnostics, G2_psi_drift, H_error_clusters, I_counterfactual_distribution, J_bias_heatmap).
+- **`deep_artifacts/*.{csv,xlsx}`** — 10 קבצי נתונים (importance, cold_start, per_program, MoE, quantile_predictions, PSI, error_clusters, counterfactual, bias_grid).
+
+### ממצאי-מפתח
+- **80% מהמודל יושב על 3 פיצ'רי-lag.** `lag_slot_mean` לבד שווה 0.114 ב-MAE; הסרת ה-lags = קריסה לנאיבי.
+- **Mixture-of-Experts גרוע יותר בכל סטטוס** (-2% עד -20%) — מודל-יחיד מנצח אמפירית בכל פילוח. הדיון נסגר.
+- **רווחי quantile לא מכוילים** (כיסוי 56%, יעד 80%). Conformal correction של `[-0.05, +0.26]` מעלה כיסוי ל-76%. הא-סימטריה מאשרת: המודל בעיקר מפספס כלפי מעלה (קפיצות אירועים).
+- **Counterfactual כימת את שלב 59:** המודל נותן +0.19 ל-event-feature, אבל קפיצות אמיתיות הן +0.5 ויותר. הפער הוא ROI לפיצ'ר event-magnitude עתידי (לא severity של LLM).
+- **PSI על פיצ'רי-זמן הוא false-alarm** של הפיצול הכרונולוגי — הפיצ'רים הסטרוקטורליים יציבים. retrain חודשי מספיק.
+- **Error clustering חושף 5 מצבי-כשל** — cluster-1 (n=27, MAE=1.19) = המהדורה המוקדמת איי 24 בשישי-שבת באירועי חרום. אי-וודאות אינהרנטית, לא פגם במודל.
+
+### 3 שדרוגים מומלצים לאפליקציה
+1. החלפת ה-CI הנוכחי (slot-std קירוב) ברווחי quantile + conformal — יום-עבודה.
+2. סימון "אי-וודאות גבוהה" אוטומטי לתוכניות עם `lag_program_n<5` — חצי-יום.
+3. Post-hoc bias correction בתאי `מיוחד/מבזק × אחה"צ` ו-`לקט × פריים-טיים`.
+
+---
+
 ## 2026-05-30 — שלב 74: כתובות נקיות לדפי הוויטרינה (Next.js rewrites)
 
 `.html` בשורת הכתובת היה הסימן האחרון של "יציאה מהאפליקציה". פתרון נקי וקל: Next.js rewrites מגישות את הקבצים הסטטיים בכתובות יפות, **בלי לפרק לראוטים של React** (=בלי הסיכון שנשבר בשלבים 70-71).

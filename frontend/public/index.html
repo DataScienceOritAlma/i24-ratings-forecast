@@ -49,6 +49,35 @@
     .appbar-cta{background:rgba(255,255,255,.1)}
     .appbar-email{opacity:.9;font-size:.75rem;padding:0 8px;direction:ltr}
     @media(max-width:640px){.appbar{padding:14px 0}.appbar-brand-title{font-size:1.05rem}.appbar-nav{font-size:.8rem;gap:4px}.appbar-link{padding:5px 9px}.appbar-email{display:none}}
+
+    /* App-aligned theme: turn the marketing-style hero + dark tech section into a light,
+       card-on-slate look that matches the dashboard. The page feels like part of the app,
+       not a separate portfolio site. */
+    body{background:var(--bg)}
+    .hero{min-height:auto;padding:48px 0 40px;background:var(--bg);color:var(--text)}
+    .hero-bg{display:none}
+    .hero-title{font-size:clamp(1.5rem,3.2vw,2.2rem);margin-bottom:14px;color:var(--text);font-weight:900}
+    .hero-accent{background:linear-gradient(135deg,var(--primary),var(--accent));-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;color:transparent}
+    .hero-subtitle{color:var(--text-muted);font-size:1rem;margin-bottom:24px;max-width:640px;font-weight:400}
+    .hero-cta{margin-bottom:22px;gap:10px}
+    .btn{padding:10px 22px;font-size:.95rem;font-weight:700;border-radius:10px;border:1px solid var(--border)}
+    .btn-primary{background:var(--primary);color:#fff;border-color:var(--primary)}
+    .btn-primary:hover{background:var(--primary-dark);color:#fff;box-shadow:0 6px 16px rgba(30,93,184,.25);transform:translateY(-1px)}
+    .btn-secondary{background:#fff;color:var(--primary-dark);border-color:var(--border)}
+    .btn-secondary:hover{background:#fff;color:var(--primary);border-color:var(--primary);transform:translateY(-1px)}
+    .hero-kpis{margin-top:14px;gap:12px}
+    .kpi{background:#fff;border:1px solid var(--border);box-shadow:0 1px 3px rgba(10,37,64,.04);backdrop-filter:none;-webkit-backdrop-filter:none;border-radius:14px;padding:14px 18px;min-width:140px}
+    .kpi:hover{background:#fff;transform:translateY(-2px);box-shadow:var(--shadow-md)}
+    .kpi-num{background:none;-webkit-text-fill-color:initial;color:var(--primary);font-size:1.7rem}
+    .kpi-lbl{color:var(--text-muted)}
+    /* Tech section: light, matches the app instead of the old dark "brand" panel */
+    .section-tech{background:#fff;color:var(--text);border-top:1px solid var(--border);border-bottom:1px solid var(--border)}
+    .section-tech .section-title{color:var(--text)}
+    .section-tech .tech-cat{background:var(--bg);border:1px solid var(--border)}
+    .section-tech .tech-cat:hover{background:#fff;border-color:var(--primary);transform:translateY(-2px);box-shadow:var(--shadow-md)}
+    .section-tech .tech-cat h4{color:var(--primary)}
+    .section-tech .tech-cat li{color:var(--text);border-bottom:1px solid var(--border)}
+    .section-tech .tech-cat li:last-child{border-bottom:none}
   </style>
 </head>
 <body>
