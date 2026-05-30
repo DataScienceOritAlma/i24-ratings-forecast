@@ -29,6 +29,7 @@
 - `model_train_timeseries.py` — מודלי TS קלאסיים (SARIMAX, Additive)
 - `model_train_all.py` — **V3, 19 מודלים** + ניתוח שגיאות מעמיק
 - `retrospective_analysis.py` — ניתוח רטרוספקטיבי: HistGB מול אמת על 1,957 שורות test. מפיק `RETROSPECTIVE.md` + `retrospective_viz/`
+- **`deep_analysis.py`** (שלב 75, 2026-05-30) — חקירה בעומק ברמת senior-DS: 10 ניתוחים (permutation importance, PDP/2D, cold-start, per-program profile, Mixture-of-Experts, quantile + conformal calibration, residual diagnostics + PSI, error clustering, counterfactual, bias heatmap). אידמפוטנטי. מפיק `DEEP_ANALYSIS.md` + `deep_viz/` + `deep_artifacts/`. ממצאי-מפתח: MoE גרוע יותר בכל סטטוס (-2 עד -20%, סוגר הדיון); quantile coverage 56% מכוילים-קונפורמלית ל-76% עם offsets `[-0.05,+0.26]`; counterfactual מאשר ש-event-feature מנוצל חלקית (+0.19 ממוצע מול קפיצות אמיתיות של +0.5+); PSI על פיצ'רי-זמן הוא false-alarm של הפיצול הכרונולוגי.
 
 ### תוצאות
 - `predictions.xlsx` — חיזויי V1 (4 מודלים)
