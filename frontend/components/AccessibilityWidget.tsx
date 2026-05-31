@@ -99,9 +99,15 @@ export default function AccessibilityWidget() {
         aria-expanded={open}
         aria-controls="a11y-panel"
         onClick={() => setOpen((v) => !v)}
-        className="fixed top-1/2 left-3 -translate-y-1/2 z-[300] w-12 h-12 rounded-full bg-brand-primary hover:bg-brand-dark text-white shadow-lg flex items-center justify-center text-3xl leading-none ring-2 ring-white/50"
+        className="z-[300] w-12 h-12 rounded-full bg-brand-primary hover:bg-brand-dark text-white shadow-lg flex items-center justify-center text-3xl leading-none ring-2 ring-white/50"
         title="נגישות"
-        style={{ fontFamily: "'Segoe UI Emoji', 'Apple Color Emoji', 'Noto Color Emoji', sans-serif" }}
+        style={{
+          position: "fixed",
+          top: "50%",
+          left: "12px",
+          transform: "translateY(-50%)",
+          fontFamily: "'Segoe UI Emoji', 'Apple Color Emoji', 'Noto Color Emoji', sans-serif",
+        }}
       >
         <span aria-hidden="true">♿</span>
       </button>
@@ -114,7 +120,8 @@ export default function AccessibilityWidget() {
           role="dialog"
           aria-modal="false"
           aria-label="תפריט נגישות"
-          className="fixed top-1/2 left-[72px] -translate-y-1/2 z-[300] w-[300px] max-w-[calc(100vw-5rem)] rounded-2xl bg-white shadow-2xl border border-slate-200 p-5"
+          className="z-[300] w-[300px] max-w-[calc(100vw-5rem)] rounded-2xl bg-white shadow-2xl border border-slate-200 p-5"
+          style={{ position: "fixed", top: "50%", left: "72px", transform: "translateY(-50%)" }}
         >
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-lg font-black text-brand-dark">תפריט נגישות</h2>
