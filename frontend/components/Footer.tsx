@@ -10,6 +10,7 @@ export default function Footer() {
         <nav className="flex gap-4 text-muted">
           <Link href="/terms" className="hover:text-brand-primary transition">תנאי שימוש</Link>
           <Link href="/privacy" className="hover:text-brand-primary transition">פרטיות</Link>
+          <Link href="/accessibility" className="hover:text-brand-primary transition">נגישות</Link>
           <a
             href="https://github.com/DataScienceOritAlma/i24-ratings-forecast"
             target="_blank"

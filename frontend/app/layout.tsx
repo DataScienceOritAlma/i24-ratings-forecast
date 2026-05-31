@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Heebo } from "next/font/google";
 import "./globals.css";
 import Footer from "@/components/Footer";
+import AccessibilityWidget from "@/components/AccessibilityWidget";
 
 const heebo = Heebo({
   subsets: ["latin", "hebrew"],
@@ -45,6 +46,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body className="font-sans antialiased min-h-screen flex flex-col">
         <div className="flex-1">{children}</div>
         <Footer />
+        <AccessibilityWidget />
       </body>
     </html>
   );

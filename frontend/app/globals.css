@@ -12,3 +12,72 @@ body {
 /* RTL-aware input alignment */
 input, textarea, select { text-align: right; }
 input[type="number"], input[type="date"], input[type="time"] { text-align: left; direction: ltr; }
+
+/* ============================================================================
+   Accessibility — toggled via classes on <html> by <AccessibilityWidget/>.
+   Israeli standard (ת"י 5568 / WCAG 2.0 AA equivalent) requires these to be
+   user-controllable from any page. Settings persist in localStorage.
+   ========================================================================= */
+
+/* Font size scaling */
+html.a11y-font-1 { font-size: 113%; }
+html.a11y-font-2 { font-size: 127%; }
+html.a11y-font-3 { font-size: 142%; }
+
+/* High contrast — yellow text on black (max-contrast for low vision) */
+html.a11y-contrast-high body,
+html.a11y-contrast-high body * {
+  background: #000 !important;
+  color: #FFFF00 !important;
+  border-color: #FFFF00 !important;
+}
+html.a11y-contrast-high body a,
+html.a11y-contrast-high body button {
+  color: #00FFFF !important;
+  text-decoration: underline !important;
+}
+html.a11y-contrast-high img,
+html.a11y-contrast-high svg {
+  filter: grayscale(100%) contrast(120%);
+}
+
+/* Inverse — dark mode via filter (cheap + comprehensive) */
+html.a11y-contrast-inverse body { filter: invert(1) hue-rotate(180deg); }
+html.a11y-contrast-inverse img,
+html.a11y-contrast-inverse video,
+html.a11y-contrast-inverse .a11y-widget {
+  filter: invert(1) hue-rotate(180deg);
+}
+
+/* Highlight all links */
+html.a11y-links a {
+  text-decoration: underline !important;
+  outline: 2px solid currentColor !important;
+  outline-offset: 2px !important;
+}
+
+/* Reduce motion — disable animations and transitions */
+html.a11y-no-anim *,
+html.a11y-no-anim *::before,
+html.a11y-no-anim *::after {
+  animation-duration: 0.001ms !important;
+  animation-delay: 0s !important;
+  transition-duration: 0.001ms !important;
+  transition-delay: 0s !important;
+  scroll-behavior: auto !important;
+}
+
+/* Always honor the system's "reduced motion" pref even if widget is off */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.001ms !important;
+    transition-duration: 0.001ms !important;
+  }
+}
+
+/* Visible focus ring for keyboard users (WCAG 2.4.7) */
+:focus-visible {
+  outline: 3px solid #1E5DB8;
+  outline-offset: 2px;
+  border-radius: 4px;
+}
