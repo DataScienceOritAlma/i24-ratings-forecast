@@ -89,8 +89,9 @@ export default function AccessibilityWidget() {
 
   return (
     <div className="a11y-widget" dir="rtl">
-      {/* Floating button — international wheelchair symbol (rendered as SVG so it
-          shows up identically on every OS, not as the inconsistent ♿ Unicode glyph) */}
+      {/* Floating button — standard ♿ symbol, anchored to the LEFT-CENTER of the
+          viewport (Israeli accessibility-widget convention: always visible, never in
+          the way of content, easy to find without scrolling). */}
       <button
         ref={buttonRef}
         type="button"
@@ -98,28 +99,14 @@ export default function AccessibilityWidget() {
         aria-expanded={open}
         aria-controls="a11y-panel"
         onClick={() => setOpen((v) => !v)}
-        className="fixed bottom-5 left-5 z-[300] w-14 h-14 rounded-full bg-brand-primary hover:bg-brand-dark text-white shadow-lg shadow-brand-primary/40 flex items-center justify-center ring-2 ring-white/40"
+        className="fixed top-1/2 left-3 -translate-y-1/2 z-[300] w-12 h-12 rounded-full bg-brand-primary hover:bg-brand-dark text-white shadow-lg flex items-center justify-center text-3xl leading-none ring-2 ring-white/50"
         title="נגישות"
+        style={{ fontFamily: "'Segoe UI Emoji', 'Apple Color Emoji', 'Noto Color Emoji', sans-serif" }}
       >
-        <svg
-          viewBox="0 0 24 24"
-          width="28"
-          height="28"
-          fill="currentColor"
-          aria-hidden="true"
-          xmlns="http://www.w3.org/2000/svg"
-        >
-          {/* Head */}
-          <circle cx="12" cy="3.5" r="1.75" />
-          {/* Torso + arms reaching wheelchair */}
-          <path d="M16.5 14h-3.4l-1.05-2.65L13 9.7V8.3l-2.5-1.45a1.5 1.5 0 0 0-2.2 1.85L9.8 13.4a1.5 1.5 0 0 0 1.4.9h4.05l1.05 4.05a1 1 0 0 0 1.94-.5L17.5 14.5A.6.6 0 0 0 16.5 14Z" />
-          {/* Wheelchair wheel */}
-          <circle cx="10.5" cy="17.5" r="4" fill="none" stroke="currentColor" strokeWidth="1.6" />
-          <circle cx="10.5" cy="17.5" r="0.9" />
-        </svg>
+        <span aria-hidden="true">♿</span>
       </button>
 
-      {/* Panel */}
+      {/* Panel — opens to the right of the button, vertically centered with it */}
       {open && (
         <div
           ref={panelRef}
@@ -127,7 +114,7 @@ export default function AccessibilityWidget() {
           role="dialog"
           aria-modal="false"
           aria-label="תפריט נגישות"
-          className="fixed bottom-20 left-5 z-[300] w-[300px] max-w-[calc(100vw-2.5rem)] rounded-2xl bg-white shadow-2xl border border-slate-200 p-5"
+          className="fixed top-1/2 left-[72px] -translate-y-1/2 z-[300] w-[300px] max-w-[calc(100vw-5rem)] rounded-2xl bg-white shadow-2xl border border-slate-200 p-5"
         >
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-lg font-black text-brand-dark">תפריט נגישות</h2>
