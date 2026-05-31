@@ -1,7 +1,32 @@
 # Work Log — EDA & Event Tagging for i24 Ratings Project
 
 > תיעוד שלב-אחר-שלב של כל מה שנעשה בפרויקט.
-> עודכן לאחרונה: 2026-05-30
+> עודכן לאחרונה: 2026-05-31
+
+---
+
+## 2026-05-31 — שלב 82: סוף הסיפור — `/about` ו-`/infographic` הפכו לראוטים של React (מקור-אמת אחד לסרגל)
+
+הצלחנו לסגור פינות בשלבים 72-81, אבל אורית המשיכה לראות אי-התאמות בין הסרגל ב-`/dashboard` (React) ו-`/about`/`/infographic` (סטטי). הסיבה הבסיסית: **שני מימושים נפרדים של אותו רכיב**. כל patch סגר דיברגנציה אחת, אחר-כך נחשפה אחרת. הפתרון האמיתי שאורית בחרה: לאחד את ה-NavBar למימוש אחד אמיתי.
+
+### הארכיטקטורה החדשה
+- **`app/about/page.tsx`** — Next route חדש. רנדור: `<NavBar email={email} title="אודות"/>` בראש + שאר התוכן (hero, stats, models, tech, links, footer) דרך `dangerouslySetInnerHTML` מ-string inline + טעינת `style.css` ו-`script.js` ב-useEffect (לאנימציות counter ו-leaderboard).
+- **`app/infographic/page.tsx`** — Next route חדש. רנדור: `<NavBar email={email} title="מקסם למדע"/>` + fetch של `/infographic.html` ב-client, פירוק עם DOMParser, הסרת ה-appbar הישן, וטעינת התוכן (23 SVG cards + modal). לוגיקת ה-modal/print/topBtn יושמה מחדש ב-useEffect ב-TypeScript.
+- **`components/NavBar.tsx`** — `/about` ו-`/infographic` סומנו כ-routes פנימיים (Next `<Link>` במקום `<a>` external). תוצאה: ניווט **client-side** — ה-NavBar נשאר mounted, אין reload, אין flash.
+- **`next.config.ts`** — ה-rewrites הישנים (`/about → /index.html`) הוסרו. ה-Next routes לקחו בעלות.
+
+### למה זה פותר את התלונה האמיתית
+1. **מקור אמת אחד.** ה-NavBar הוא רכיב React אחד שמופיע בכל הדפים. אי אפשר שיהיה הבדל ויזואלי כי זה אותו קוד.
+2. **ניווט client-side.** לחיצה על "אודות" מ-`/dashboard` לא טוענת דף חדש — Next מעדכן את ה-URL וה-content, ה-NavBar נשאר על המסך **באותם פיקסלים**.
+3. **Active state אוטומטי.** ה-NavBar עצמו מזהה `pathname === item.href`; ב-`/about` הקישור "אודות" מודגש כפעיל, ב-`/infographic` הקישור "🔮 מקסם למדע" — בלי לוגיקה ידנית.
+4. **אימייל בלי flash.** כש-NavBar mounted כל הזמן (לא reload), ה-state של `email` נשמר. אין flash של "התחברות → email".
+
+### Backward compat
+הקבצים `public/index.html` ו-`public/infographic.html` נשארו כקבצים סטטיים ב-Next, מוגשים ב-`/index.html` ו-`/infographic.html`. כל לינק ישן עדיין עובד. ה-React route ב-`/about` ו-`/infographic` מקבל קדימות (Next file-based routes > public files).
+
+### אימות
+- `npm run build` נקי — 17 ראוטים, `/about` 5.2KB, `/infographic` 2.65KB, שניהם prerendered.
+- Edge headless — `/about` ו-`/infographic` נטענים, ה-NavBar האמיתי בראש, התוכן מתחת, "אודות"/"מקסם למדע" מסומנים active כצפוי.
 
 ---
 
