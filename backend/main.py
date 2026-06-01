@@ -16,9 +16,10 @@ from typing import Optional
 import joblib
 import pandas as pd
 import psycopg
+import requests
 import stripe
 from dotenv import load_dotenv
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import Depends, FastAPI, Header, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
@@ -168,6 +169,47 @@ def _require_stripe():
                 "ראה STRIPE_SETUP.md."
             ),
         )
+
+
+# ============================================================
+# Auth — verify a Supabase JWT by asking Supabase itself.
+# Avoids any local crypto / JWT-secret config (works with the new
+# asymmetric-key Supabase projects too). Returns the user object on success.
+# ============================================================
+SUPABASE_URL = os.environ.get("NEXT_PUBLIC_SUPABASE_URL") or "https://bfnmaogcxdgnaxwjdtny.supabase.co"
+SUPABASE_KEY = os.environ.get("NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY") or ""
+# Local-dev escape hatch — never set REQUIRE_AUTH=false in production
+_AUTH_REQUIRED = os.environ.get("REQUIRE_AUTH", "true").lower() != "false"
+
+
+def require_user(authorization: Optional[str] = Header(None)) -> dict:
+    """FastAPI dependency: verifies the caller's Supabase JWT and returns the user.
+
+    Raises 401 if the token is missing or rejected by Supabase.
+    Set REQUIRE_AUTH=false to bypass for local development.
+    """
+    if not _AUTH_REQUIRED:
+        return {"id": "dev", "email": "dev@local"}
+
+    if not authorization or not authorization.lower().startswith("bearer "):
+        raise HTTPException(status_code=401, detail="Missing or malformed Authorization header")
+    token = authorization.split(" ", 1)[1].strip()
+    if not token:
+        raise HTTPException(status_code=401, detail="Empty bearer token")
+
+    try:
+        r = requests.get(
+            f"{SUPABASE_URL}/auth/v1/user",
+            headers={"Authorization": f"Bearer {token}", "apikey": SUPABASE_KEY},
+            timeout=5,
+        )
+    except requests.RequestException as e:
+        raise HTTPException(status_code=503, detail=f"Auth service unavailable: {e}")
+
+    if r.status_code != 200:
+        raise HTTPException(status_code=401, detail="Invalid or expired token")
+
+    return r.json()
 
 
 # ============================================================
@@ -363,7 +405,7 @@ def health():
 
 
 @app.post("/ask", response_model=AskResponse)
-def ask(req: AskRequest):
+def ask(req: AskRequest, user: dict = Depends(require_user)):
     q = req.question.strip()
     parsed = llm_extract(q)            # LLM parsing if GROQ available
     if parsed and parsed[0]:
@@ -409,7 +451,7 @@ def ask(req: AskRequest):
         scenario=scenario,  # type: ignore[arg-type]
         status="שידור חי",
     )
-    pred = predict(pred_req)
+    pred = predict(pred_req, user=user)
 
     weekday_he_name = {
         0: "שני", 1: "שלישי", 2: "רביעי", 3: "חמישי", 4: "שישי", 5: "שבת", 6: "ראשון"
@@ -561,7 +603,7 @@ async def stripe_webhook(request: Request):
 
 
 @app.post("/predict", response_model=PredictResponse)
-def predict(req: PredictRequest):
+def predict(req: PredictRequest, user: dict = Depends(require_user)):
     h = req.start_time.hour
     # "special_event" now means a SECURITY event. Holidays were dropped from the
     # model (שלב 57); this fires the strong יום_ביטחוני signal (≈+39% on a
