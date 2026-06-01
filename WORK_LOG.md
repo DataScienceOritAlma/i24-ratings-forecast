@@ -5,6 +5,37 @@
 
 ---
 
+## 2026-05-31 — שלב 88: הקשחת אבטחה — rate limit + CORS + security headers
+
+המשך טבעי לשלב 87 (JWT). שלושה רכיבים שטיפלנו במכה אחת.
+
+### Rate limiting (slowapi)
+- `pip install slowapi==0.1.9` (נוסף ל-`backend/requirements.txt`).
+- `Limiter(key_func=get_remote_address)`, exception handler מסטנדרטי.
+- `@limiter.limit("30/minute")` על `/predict` ו-`/ask`. נדרשת `Request` כפרמטר ראשון (דרישת slowapi).
+- `/health` חופשי לצורך keep-alive.
+- **התנהגות מעשית:** עבור משתמש לא-מאומת ה-JWT-check רץ ראשון ומחזיר 401 לפני שה-limiter בכלל מסתכל. עבור משתמש מאומת — limit של 30 בקשות/דקה לכל IP. עברו את הסף → 429.
+
+### CORS מהודק
+- ה-allow_origins `["*"]` הוחלף ב-list מצומצם: `http://localhost:3000`, `http://127.0.0.1:3000`, ו-regex `https://.*\.vercel\.app` (כיסוי לכל preview deploys + production של Vercel).
+- env var `EXTRA_CORS_ORIGINS=https://my-domain.com` יוסיף דומיינים נוספים (כשהדומיין הקבוע יהיה דרך GoDaddy).
+- methods מוגבל ל-`GET, POST, OPTIONS` במקום `*`. headers ל-`Content-Type, Authorization`.
+
+### Security headers (middleware)
+מוסיף לכל תגובה:
+- `X-Content-Type-Options: nosniff` — מונע MIME-sniffing
+- `X-Frame-Options: DENY` — מונע clickjacking
+- `Referrer-Policy: strict-origin-when-cross-origin`
+- `Strict-Transport-Security: max-age=31536000; includeSubDomains` — HSTS
+
+### אימות
+Smoke test (4 בדיקות):
+- Headers מופיעים ב-`/health` ✓ (כולל HSTS).
+- CORS preflight מ-localhost → 200 עם ACAO. מ-evil.example.com → 400 ללא ACAO. ✓
+- 35 בקשות עם token פסול → 35×401 (JWT-check חוסם ראשון, lower-cost rejection). ✓
+
+---
+
 ## 2026-05-31 — שלב 87: אבטחה — דרישת Supabase JWT ב-`/predict` ו-`/ask`
 
 עד עכשיו ה-backend ב-Render היה **פתוח לציבור** — כל מי שיודע את ה-URL יכל לקרוא ל-`/predict` בלי לוגין. שתי בעיות: (א) משתמש לא-לקוח מקבל תחזיות חינם, (ב) DoS — אפשר להציף את השרת. סגירת הפרצה לקראת מפגש מנטור 6.

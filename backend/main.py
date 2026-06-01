@@ -22,6 +22,9 @@ from dotenv import load_dotenv
 from fastapi import Depends, FastAPI, Header, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
+from slowapi.util import get_remote_address
 
 # Make `utils.imputers` importable (required by joblib pickle resolution)
 ROOT = Path(__file__).parent.parent
@@ -318,14 +321,34 @@ app = FastAPI(
     version="1.0.0",
 )
 
-# CORS — open in dev; tighten to specific origin once frontend has a domain
+# CORS — tightened. Allow localhost for dev + any vercel.app subdomain (production
+# + preview deploys). Add a custom domain via env var EXTRA_CORS_ORIGINS=https://foo.com
+_extra = [o.strip() for o in os.environ.get("EXTRA_CORS_ORIGINS", "").split(",") if o.strip()]
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=["http://localhost:3000", "http://127.0.0.1:3000", *_extra],
+    allow_origin_regex=r"https://.*\.vercel\.app",
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "OPTIONS"],
+    allow_headers=["Content-Type", "Authorization"],
 )
+
+# Rate limiting — protects /predict and /ask from abuse (even authenticated users).
+# 30/minute is comfortable for human usage but rules out spam. /health is exempt.
+limiter = Limiter(key_func=get_remote_address)
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
+# Security headers — defense in depth (HSTS, no-sniff, frame-deny, referrer-policy).
+# These are *response* headers; nothing to configure on the client.
+@app.middleware("http")
+async def _security_headers(request: Request, call_next):
+    response = await call_next(request)
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "DENY"
+    response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+    response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
+    return response
 
 
 # ============================================================
@@ -405,7 +428,8 @@ def health():
 
 
 @app.post("/ask", response_model=AskResponse)
-def ask(req: AskRequest, user: dict = Depends(require_user)):
+@limiter.limit("30/minute")
+def ask(request: Request, req: AskRequest, user: dict = Depends(require_user)):
     q = req.question.strip()
     parsed = llm_extract(q)            # LLM parsing if GROQ available
     if parsed and parsed[0]:
@@ -451,7 +475,7 @@ def ask(req: AskRequest, user: dict = Depends(require_user)):
         scenario=scenario,  # type: ignore[arg-type]
         status="שידור חי",
     )
-    pred = predict(pred_req, user=user)
+    pred = predict(request, pred_req, user=user)
 
     weekday_he_name = {
         0: "שני", 1: "שלישי", 2: "רביעי", 3: "חמישי", 4: "שישי", 5: "שבת", 6: "ראשון"
@@ -603,7 +627,8 @@ async def stripe_webhook(request: Request):
 
 
 @app.post("/predict", response_model=PredictResponse)
-def predict(req: PredictRequest, user: dict = Depends(require_user)):
+@limiter.limit("30/minute")
+def predict(request: Request, req: PredictRequest, user: dict = Depends(require_user)):
     h = req.start_time.hour
     # "special_event" now means a SECURITY event. Holidays were dropped from the
     # model (שלב 57); this fires the strong יום_ביטחוני signal (≈+39% on a
