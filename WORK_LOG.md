@@ -5,6 +5,35 @@
 
 ---
 
+## 2026-05-31 — שלב 89: SECURITY.md + GitHub Actions לבדיקת CVE בתלויות
+
+שני פריטים "קטנים אך מקצועיים" שמשלימים את חבילת האבטחה:
+
+### `SECURITY.md`
+Responsible disclosure policy בריפו עצמו. כולל:
+- כתובת מייל פרטית לדיווח (לא issue פתוח).
+- SLA של 7 ימי-עסקים לאישור.
+- snapshot של כל ההגנות הקיימות (JWT, rate limit, CORS, headers, RLS, Stripe HMAC).
+- מה ה-project **לא** מתאים לו (high-throughput public API, regulated healthcare/finance).
+
+זה אות אמינות לכל מי שמסתכל בריפו — Github מציג את הקובץ אוטומטית בלשונית "Security".
+
+### `.github/workflows/audit.yml`
+שתי job מקבילות שרצות בכל push, בכל PR ל-main, ובכל יום ב' ב-06:00 UTC:
+1. **pip-audit** על `backend/requirements.txt` עם OSV database, `--strict` (fail על כל פגיעות עם fix זמין).
+2. **npm audit** על `frontend/` עם `--audit-level=high` (fail רק על HIGH+; MODERATE עוברות עם warning).
+
+ה-thresholds מותאמים: ה-medium/low צריך triage ידני, ה-high/critical חוסם merge.
+
+### אימות
+- `npm audit --audit-level=high` מקומית → exit 0 (יש 2 moderate ב-Next.js → postcss, אבל לא חוסם).
+- ה-CI ירוץ אוטומטית בעלייה.
+
+### לחישוב פרי-אינסטלציה
+GitHub Actions חינמי לרפוזיטוריים ציבוריים — אפס עלות. הריצה השבועית מבטיחה שגם CVEs שפורסמו אחרי המרג' לא נשאר עיוורים אליהם.
+
+---
+
 ## 2026-05-31 — שלב 88: הקשחת אבטחה — rate limit + CORS + security headers
 
 המשך טבעי לשלב 87 (JWT). שלושה רכיבים שטיפלנו במכה אחת.
