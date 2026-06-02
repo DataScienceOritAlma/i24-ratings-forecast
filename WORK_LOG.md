@@ -5,6 +5,36 @@
 
 ---
 
+## 2026-06-01 — שלב 90: pytest suite ל-backend + CI אוטומטי
+
+עד עכשיו ה"אימותים" היו smoke-tests ידניים שמחקתי אחרי הרצה. זה לא ראוי לפורטפוליו מקצועי. הוספנו pytest suite אמיתי שרץ ב-CI על כל push.
+
+### מבנה
+- `backend/tests/__init__.py` + `conftest.py` — fixtures משותפים (`app`, `client`, `predict_body`).
+- `backend/tests/test_health.py` — 3 בדיקות: `/health` פתוח, `/` מתאר את השירות, כל ה-security headers נוכחים.
+- `backend/tests/test_auth.py` — 6 בדיקות: 401 ללא header / header malformed / Bearer ריק / token שנדחה ע"י Supabase / `/ask` חסום; **200 עם token שתקין** (mock ל-`requests.get` שמדמה אישור Supabase). הבדיקה האחרונה מאמתת שהרווח האסימטרי `[low, predicted, high]` חוזר נכון.
+- `backend/tests/test_prediction_logic.py` — 5 unit tests טהורים על ה-helpers (`estimate_reception_pct` ב-range, `date_to_weekday_he` בעברית, `rating_to_viewers` מונוטוני ומחזיר int).
+
+### Mock-based testing
+ה-`require_user()` קוראת ל-Supabase. בטסטים אנחנו mock-ים את `main.requests.get` כדי שלא יהיה network call. שני תרחישים: `MagicMock(status_code=401)` ל-token פסול, `MagicMock(status_code=200, json=...)` ל-token תקין.
+
+### CI workflow — `.github/workflows/test.yml`
+- רץ על כל push + PR ל-main + manual dispatch.
+- Python 3.11, התקנת `backend/requirements.txt`, הרצת pytest verbose.
+- אין צורך ב-DATABASE_URL — נטענת היסטוריה מ-xlsx (fallback ב-`_load_history()`).
+
+### תוצאה מקומית
+```
+======================= 14 passed, 16 warnings in 8.13s =======================
+```
+
+(האזהרות הן רק על InconsistentVersionWarning של sklearn — לא תוקן כי functionally everything works; חולש לפעם הבאה בה ניגע ב-retrain workflow.)
+
+### לקראת מפגש 6
+כשהמנטור ישאל "איך את יודעת שהקוד עובד?" — התשובה היא ✅ ירוקה ב-Actions עם 14 בדיקות, לא "הרצתי את האפליקציה ובדקתי בעין".
+
+---
+
 ## 2026-05-31 — שלב 89: SECURITY.md + GitHub Actions לבדיקת CVE בתלויות
 
 שני פריטים "קטנים אך מקצועיים" שמשלימים את חבילת האבטחה:
