@@ -248,6 +248,34 @@ A/B מול ה-reference של Tailwind ב-4 רוחבים — סף-העיטוף ע
 
 ---
 
+## 2026-06-06 — שלבים 82-85: רצף תיקוני פרודקשן אחרי deploy של שלב 78-81
+
+הצורך עלה כשאורית ניסתה להשתמש באפליקציה החיה אחרי ה-deploy של השיפורים. כל קריאה ל-/predict נכשלה. תיקנתי 4 באגים בזה אחר זה.
+
+### שלב 82 — cap קשיח של 1.5s על ה-LLM ב-/predict
+**הבעיה:** בפרודקשן ה-Groq אטי לפעמים (יכול להגיע ל-30s+ עם retries), חוסם את התחזית. בלוקלי תוקן עם `LLM_EXPLAIN_PREDICTIONS=false` אבל ב-Render המשתנה לא הוגדר אז ההסבר רץ על כל קריאה.
+**הפתרון:** עוטף את `explain_prediction` ב-`concurrent.futures.ThreadPoolExecutor` עם timeout של 1.5s (גמיש דרך `LLM_EXPLAIN_TIMEOUT_SEC`). אם ה-LLM לא חוזר בזמן — `explanation=None` ו-/predict מחזיר את התחזית מיד.
+
+### שלב 83 — hard fallback ל-SUPABASE_PUBLISHABLE_KEY + שגיאות מפורטות
+**הבעיה:** בפרודקשן כל קריאה חוזרת 401 'Invalid or expired token' גם אחרי logout/login. החשד היה ש-env var `SUPABASE_PUBLISHABLE_KEY` לא הוגדר ב-Render → backend שולח apikey ריק → Supabase דוחה את כל ה-tokens.
+**הפתרון:**
+1. hardcoded fallback למפתח הפובלישבל (זה מפתח פומבי, מוטמע גם ב-Vercel). כך גם אם env var חסר, האימות עובד.
+2. הודעת השגיאה ב-/predict עכשיו מציגה את הסיבה האמיתית מ-Supabase (`bad_jwt` לטוקן פג vs `No API key` לconfig שבור) — דיאגנוסטיקה מיידית.
+
+### שלב 84 — תיקון באג 422 ב-/predict ו-/ask (Body(...) מפורש)
+**הבעיה:** `from __future__ import annotations` בראש main.py הופך type hints למחרוזות. שילוב של זה + slowapi rate limiter + `Depends()` גרם ל-FastAPI לא לזהות שPredictRequest הוא body, ולחפש 'req' ב-query string → 422 'Field required, loc=query.req' לכל קריאה. **היה מוסתר מאחורי 401 (auth blocking) עד שתיקנו את הauth בשלב 83.**
+**הפתרון:** `Body(...)` מפורש: `predict(request: Request, req: PredictRequest = Body(...), user=Depends(...))`. אותו תיקון גם ל-/ask.
+
+### שלב 85 — keepalive חזק יותר, לולאת 50 דק' לכל הרצה
+**הבעיה:** ה-cron `*/10 * * * *` שמיועד לרוץ כל 10 דק' — **בפועל רץ פעם בשעה** ב-GitHub Actions free-tier. ראיתי בלוגים: פערים של 60-83 דק' בין הרצות. עם מדיניות שינה של 15 דק' ב-Render, זה השאיר חלון של 45+ דק' שבו השרת נרדם → cold-start של 11+ שניות → דפדפן זורק 'Failed to fetch'.
+**הפתרון:** כל הרצה של ה-workflow מבצעת **11 pings ב-5 דק' מרווח (סה"כ ~50 דק')**. ככה גם בקצב יריות של פעם בשעה — Render נשאר ער ~83% מהזמן. הוסיף שתי schedules (cron `*/10` ו-`5-55/10`) להגדיל סיכוי לפעמיים בשעה. concurrency group מונע overlap.
+
+### למידה
+- **תיקון אימות חשף באגי validation שהיו מוסתרים.** כל שכבת אימות צריכה להיבדק בנפרד מהשכבות שמתחתיה.
+- **GitHub Actions cron הוא best-effort, לא הבטחה.** free-tier יכול להתעכב בעשרות דקות. צריך להתחשב בזה בתכנון workflows קריטיים-לזמן.
+
+---
+
 ## 2026-06-06 — שלב 81: חלק שני של החקירה — 6 ניתוחים נוספים (K-P)
 
 המשך של שלב 75 — לסיים את החקירה כפי שמנטור היה עושה. נוספו 6 ניתוחים שהיו חסרים מהגרסה הראשונה.
