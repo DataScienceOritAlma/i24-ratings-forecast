@@ -360,6 +360,24 @@ export default function DashboardPage() {
                     </div>
                   )}
 
+                  {result.reliability === "cold_start" && (
+                    <div className="mt-4 bg-orange-400/20 border border-orange-300/40 rounded-xl px-3 py-2 text-xs leading-relaxed">
+                      <div className="font-bold text-orange-100 flex items-center gap-1.5">
+                        <span>⚠️</span>
+                        <span>אי-וודאות גבוהה — תוכנית חדשה</span>
+                      </div>
+                      <div className="opacity-85 mt-0.5">
+                        רק {result.n_historical_broadcasts ?? 0} שידורים היסטוריים — המודל "לא הכיר" אותה מספיק כדי לחזות בביטחון. הרווח רחב בכוונה.
+                      </div>
+                    </div>
+                  )}
+                  {result.reliability === "medium" && (
+                    <div className="mt-4 bg-yellow-300/15 border border-yellow-300/30 rounded-xl px-3 py-1.5 text-[11px] opacity-90 flex items-center gap-1.5">
+                      <span>💡</span>
+                      <span>{result.n_historical_broadcasts} שידורים בלבד — אמינות בינונית</span>
+                    </div>
+                  )}
+
                   {/* Confidence visualization */}
                   <div className="mt-5">
                     <div className="flex items-center justify-between text-xs opacity-80 mb-1.5">

@@ -30,6 +30,7 @@
 - `model_train_all.py` — **V3, 19 מודלים** + ניתוח שגיאות מעמיק
 - `retrospective_analysis.py` — ניתוח רטרוספקטיבי: HistGB מול אמת על 1,957 שורות test. מפיק `RETROSPECTIVE.md` + `retrospective_viz/`
 - **`deep_analysis.py`** (שלב 75, 2026-05-30) — חקירה בעומק ברמת senior-DS: 10 ניתוחים (permutation importance, PDP/2D, cold-start, per-program profile, Mixture-of-Experts, quantile + conformal calibration, residual diagnostics + PSI, error clustering, counterfactual, bias heatmap). אידמפוטנטי. מפיק `DEEP_ANALYSIS.md` + `deep_viz/` + `deep_artifacts/`. ממצאי-מפתח: MoE גרוע יותר בכל סטטוס (-2 עד -20%, סוגר הדיון); quantile coverage 56% מכוילים-קונפורמלית ל-76% עם offsets `[-0.05,+0.26]`; counterfactual מאשר ש-event-feature מנוצל חלקית (+0.19 ממוצע מול קפיצות אמיתיות של +0.5+); PSI על פיצ'רי-זמן הוא false-alarm של הפיצול הכרונולוגי.
+- **`deep_analysis_v2.py`** (שלב 81, 2026-06-06) — חלק שני של החקירה: 6 ניתוחים נוספים (Learning curve, Bootstrap MAE CI, Calibration plot, Local explanation, STL seasonality, Anomaly detection). מצרף סעיפים K-P ל-`DEEP_ANALYSIS.md` (אידמפוטנטי). ממצאי-מפתח: דאטה עדכני שווה הרבה (5% אחרונים שיפרו 0.014, יותר מ-1170 שורות לפניהן) — monthly retrain הכרחי לא קוסמטיקה; MAE = 0.30 ± 0.008 (CI 95% [0.286, 0.316]); 56% מהtest מסומן כanomaly וMAE עליהן פי 1.63 גרוע. דורש statsmodels.
 
 ### תוצאות
 - `predictions.xlsx` — חיזויי V1 (4 מודלים)
@@ -68,7 +69,7 @@
 - הרצה: `cd frontend && npm install && npm run dev` → http://localhost:3000
 
 ### Backend (FastAPI ML Service — שלב 2, 2026-05-21)
-- `backend/main.py` — FastAPI app: `/health`, `/predict`, `/docs`. טוען `model_saved.joblib` + `model_quantiles.joblib` (אופציונלי, שלב 78) + היסטוריה מ-Supabase ב-startup. **תרחיש `scenario`:** `routine` או `special_event` (=אירוע ביטחוני; מדליק `is_security`, ≈+39%). חגים אינם תרחיש (הוסרו, שלב 57). **רווחי `prediction_low/high`** (שלב 78): מחושבים מ-quantile P10/P90 + conformal offsets (`[-0.054, +0.328]`, כיסוי 79.9%) אם הקובץ קיים; אחרת נופלים חיננית ל-CI הישן (slot_std).
+- `backend/main.py` — FastAPI app: `/health`, `/predict`, `/docs`. טוען `model_saved.joblib` + `model_quantiles.joblib` (אופציונלי, שלב 78) + היסטוריה מ-Supabase ב-startup. **תרחיש `scenario`:** `routine` או `special_event` (=אירוע ביטחוני; מדליק `is_security`, ≈+39%). חגים אינם תרחיש (הוסרו, שלב 57). **רווחי `prediction_low/high`** (שלב 78): מחושבים מ-quantile P10/P90 + conformal offsets (`[-0.054, +0.328]`, כיסוי 79.9%) אם הקובץ קיים; אחרת נופלים חיננית ל-CI הישן (slot_std). **סימוני cold-start** (שלב 79): `cold_start`, `n_historical_broadcasts`, `reliability` (`high`/`medium`/`cold_start`). dev-toggles: `REQUIRE_AUTH=false` עוקף JWT verify, `LLM_EXPLAIN_PREDICTIONS=false` מדלג על Groq (50ms במקום 1-3s).
 - `backend/prediction_logic.py` — חישוב lag features, slot uncertainty, trend (פורט מ-utils/predict.py בלי תלות ב-Streamlit)
 - `backend/requirements.txt` — FastAPI · uvicorn · sklearn · pandas · psycopg · dotenv
 - `backend/render.yaml` — תצורת פריסה אוטומטית ל-Render.com
@@ -110,6 +111,8 @@
 - **`model_saved.joblib`** (1.2MB) — הצנרת המאומנת. מטא-דאטה כולל `target_name`, `target_kind="adjusted"`, `expected_test_mae=0.300`
 - **`train_quantile_models.py`** (שלב 77, 2026-05-30) — מאמן P10/P90 (HistGB עם loss=quantile), 85/15 split כרונולוגי לחיתוך-קליברציה, מחשב conformal offsets כ-90th-pctile של פערים בכל קצה. מפיק `model_quantiles.joblib`.
 - **`model_quantiles.joblib`** (2.4MB) — `pipe_p10`, `pipe_p90`, `offset_low=0.054`, `offset_high=0.328`. כיסוי מכויל 79.9% (יעד 80%). נטען ב-backend (שלב 78) להפקת `prediction_low/high`.
+- **`compute_bias_corrections.py`** (שלב 80, 2026-05-30) — מחשב bias ממוצע פר (status × daypart) על test, מסנן n≥30 & |bias|≥0.10 & cap ב-±0.30. מפיק `bias_corrections.json`.
+- **`bias_corrections.json`** — 7 תיקוני הטיה יציבים. backend מחיל אותם על pred + רווח quantile (שלב 80). שיפור MAE על test: 0.3010 → 0.2993.
 - `model_train_all_v4_adjusted.py` + `MODEL_REPORT_ALL_v4_adjusted.md` — השוואת 19 המודלים על Y המותאם
 - `predictions_all_v4_adjusted.xlsx` — חיזויי V4 על test set
 

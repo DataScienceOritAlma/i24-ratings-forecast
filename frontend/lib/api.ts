@@ -34,6 +34,10 @@ export interface PredictResponse {
   target_kind?: string;                // "adjusted" | "raw"
   confidence_pct: number;
   uncertainty_source: string;
+  // Cold-start signals (DEEP_ANALYSIS §C). Default to safe values for older backends.
+  cold_start?: boolean;
+  n_historical_broadcasts?: number;
+  reliability?: "high" | "medium" | "cold_start";
   metadata: Record<string, unknown>;
   explanation?: string | null;         // LLM natural-language explanation (if enabled)
 }

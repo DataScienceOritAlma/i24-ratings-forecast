@@ -6,9 +6,20 @@ history from Supabase on startup, and serves /predict + /health.
 """
 from __future__ import annotations
 
+import io
 import os
 import re
 import sys
+
+# Force UTF-8 stdout/stderr — startup prints use ✓/⚠️/—; on Windows the default
+# is cp1255 (Hebrew) which crashes on these. Must run before any print().
+try:
+    if sys.stdout.encoding and sys.stdout.encoding.lower() != "utf-8":
+        sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
+        sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding="utf-8", errors="replace")
+except (AttributeError, ValueError):
+    pass
+
 from datetime import date as date_t, time as time_t, timedelta, datetime
 from pathlib import Path
 from typing import Optional
@@ -84,6 +95,23 @@ if QUANTILE_PATH.exists():
         _QUANTILE_OBJ = None
 else:
     print("[startup] ⚠️  model_quantiles.joblib not found → fallback to std interval")
+
+# Post-hoc bias corrections per (status × daypart) — DEEP_ANALYSIS §J + שלב 80.
+# See compute_bias_corrections.py. Keys are "status|daypart"; value is added to prediction.
+import json as _json  # local alias to avoid touching the top imports
+BIAS_PATH = ROOT / "bias_corrections.json"
+_BIAS_CORRECTIONS: dict = {}
+if BIAS_PATH.exists():
+    try:
+        _obj = _json.loads(BIAS_PATH.read_text(encoding="utf-8"))
+        _BIAS_CORRECTIONS = _obj.get("corrections", {})
+        print(f"[startup] ✓ Bias corrections loaded: {len(_BIAS_CORRECTIONS)} cells "
+              f"(test MAE {_obj.get('test_mae_before')} → {_obj.get('test_mae_after')})")
+    except Exception as e:
+        print(f"[startup] ⚠️  Failed to load bias_corrections.json: {e}")
+        _BIAS_CORRECTIONS = {}
+else:
+    print("[startup] ⚠️  bias_corrections.json not found → no bias correction applied")
 
 
 def _load_history() -> pd.DataFrame:
@@ -179,8 +207,20 @@ def _require_stripe():
 # Avoids any local crypto / JWT-secret config (works with the new
 # asymmetric-key Supabase projects too). Returns the user object on success.
 # ============================================================
-SUPABASE_URL = os.environ.get("NEXT_PUBLIC_SUPABASE_URL") or "https://bfnmaogcxdgnaxwjdtny.supabase.co"
-SUPABASE_KEY = os.environ.get("NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY") or ""
+SUPABASE_URL = (
+    os.environ.get("NEXT_PUBLIC_SUPABASE_URL")
+    or os.environ.get("SUPABASE_URL")
+    or "https://bfnmaogcxdgnaxwjdtny.supabase.co"
+)
+SUPABASE_KEY = (
+    os.environ.get("NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY")
+    or os.environ.get("SUPABASE_PUBLISHABLE_KEY")
+    or os.environ.get("SUPABASE_ANON_KEY")
+    or ""
+)
+if not SUPABASE_KEY:
+    print("[startup] ⚠️  No SUPABASE_PUBLISHABLE_KEY env var found — /predict will return 401 for all requests. "
+          "Set REQUIRE_AUTH=false for local dev to bypass.")
 # Local-dev escape hatch — never set REQUIRE_AUTH=false in production
 _AUTH_REQUIRED = os.environ.get("REQUIRE_AUTH", "true").lower() != "false"
 
@@ -375,6 +415,12 @@ class PredictResponse(BaseModel):
     target_kind: str = "adjusted"
     confidence_pct: int = 80
     uncertainty_source: str
+    # Cold-start signals (DEEP_ANALYSIS §C): a program with <5 prior broadcasts has
+    # ~1.4× higher MAE than veterans. UI should show a warning badge so the user knows
+    # the interval is wide because of low signal, not because the answer is "extreme".
+    cold_start: bool = False
+    n_historical_broadcasts: int = 0
+    reliability: str = "high"           # "high" | "medium" | "cold_start"
     metadata: dict
     explanation: Optional[str] = None   # LLM natural-language explanation (null if GROQ key unset)
 
@@ -672,17 +718,27 @@ def predict(request: Request, req: PredictRequest, user: dict = Depends(require_
 
     pred = max(0.0, pred)
 
+    # Post-hoc bias correction (שלב 80 / DEEP_ANALYSIS §J). Applied BEFORE quantile
+    # intervals so the [low, high] band re-centers around the corrected prediction.
+    bias_key = f"{req.status}|{feats.get('חלקי-יום', '')}"
+    bias_shift = float(_BIAS_CORRECTIONS.get(bias_key, 0.0))
+    if bias_shift != 0.0:
+        pred = max(0.0, pred + bias_shift)
+
     weekday_he = date_to_weekday_he(req.target_date)
     uncert = compute_slot_uncertainty(HISTORY_DF, req.program_name, h, weekday_he)
 
     # Prediction interval — prefer conformal-calibrated quantile models (~80% empirical
     # coverage, validated). Falls back to symmetric std-of-slot if the bundle is missing.
+    # The same bias_shift is applied to P10/P90 so the band stays centered on the corrected
+    # prediction — if the model under-predicts the median by 0.27, it likely also under-
+    # predicts the tails by the same amount.
     if _QUANTILE_OBJ is not None:
         try:
             p10_raw = float(_QUANTILE_OBJ["pipe_p10"].predict(feature_row)[0])
             p90_raw = float(_QUANTILE_OBJ["pipe_p90"].predict(feature_row)[0])
-            low = max(0.0, p10_raw - _QUANTILE_OBJ["offset_low"])
-            high = max(low, p90_raw + _QUANTILE_OBJ["offset_high"])
+            low = max(0.0, p10_raw - _QUANTILE_OBJ["offset_low"] + bias_shift)
+            high = max(low, p90_raw + _QUANTILE_OBJ["offset_high"] + bias_shift)
             interval_method = "conformal_quantile"
         except Exception:
             low = max(0.0, pred - uncert["p80_half_width"])
@@ -699,8 +755,10 @@ def predict(request: Request, req: PredictRequest, user: dict = Depends(require_
     pred_raw = pred * reception_pct
     viewers = rating_to_viewers(pred_raw)
 
+    # LLM explanation is the slowest step (~1-3s Groq round-trip). Gate behind an env
+    # var so local dev can opt out for speed. Default ON to preserve prod behavior.
     explanation = None
-    if _llm_ready():
+    if _llm_ready() and os.environ.get("LLM_EXPLAIN_PREDICTIONS", "true").lower() != "false":
         try:
             explanation = explain_prediction(
                 program=req.program_name, weekday=weekday_he, hour=h, predicted=pred,
@@ -709,6 +767,18 @@ def predict(request: Request, req: PredictRequest, user: dict = Depends(require_
             )
         except Exception:
             explanation = None  # never let the explanation layer break a prediction
+
+    # Reliability classification by historical-broadcast count (DEEP_ANALYSIS §C):
+    #   n<5   → cold_start  (~36% higher MAE — show explicit warning)
+    #   5-19  → medium      (warming up — quiet hint, not a warning)
+    #   20+   → high        (no badge)
+    n_hist = int(feats.get("lag_program_n", 0) or 0)
+    if n_hist < 5:
+        reliability = "cold_start"
+    elif n_hist < 20:
+        reliability = "medium"
+    else:
+        reliability = "high"
 
     return PredictResponse(
         predicted_rating=round(pred, 3),                       # adjusted (model target)
@@ -722,6 +792,9 @@ def predict(request: Request, req: PredictRequest, user: dict = Depends(require_
         target_kind=_MODEL_OBJ.get("target_kind", "adjusted"),
         confidence_pct=80,
         uncertainty_source=interval_method,
+        cold_start=(reliability == "cold_start"),
+        n_historical_broadcasts=n_hist,
+        reliability=reliability,
         metadata={
             "weekday": weekday_he,
             "hour": h,
@@ -730,6 +803,7 @@ def predict(request: Request, req: PredictRequest, user: dict = Depends(require_
             "interval_method": interval_method,
             "slot_std_basis_n": uncert["n_used"],
             "slot_std_source": uncert["source"],
+            "bias_correction_applied": round(bias_shift, 3),
         },
         explanation=explanation,
     )
