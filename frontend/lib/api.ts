@@ -1,6 +1,14 @@
 import { supabase } from "@/lib/supabase";
 
-const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+// Production fallback: if NEXT_PUBLIC_API_URL is not configured in Vercel,
+// auto-detect: localhost in dev (window on http://localhost:*), Render in prod.
+// This prevents the "Failed to fetch" crash when Vercel env vars get out of sync.
+const _isLocalDev =
+  typeof window !== "undefined" &&
+  /^(localhost|127\.0\.0\.1)/.test(window.location.hostname);
+const API =
+  process.env.NEXT_PUBLIC_API_URL ||
+  (_isLocalDev ? "http://localhost:8000" : "https://i24-ratings-api.onrender.com");
 
 // Build headers with the current Supabase access token attached so the
 // backend's require_user() dependency can verify the caller.
