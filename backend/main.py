@@ -755,18 +755,25 @@ def predict(request: Request, req: PredictRequest, user: dict = Depends(require_
     pred_raw = pred * reception_pct
     viewers = rating_to_viewers(pred_raw)
 
-    # LLM explanation is the slowest step (~1-3s Groq round-trip). Gate behind an env
-    # var so local dev can opt out for speed. Default ON to preserve prod behavior.
+    # LLM explanation is the slowest step (Groq round-trip + retries can hit 30s+).
+    # Two safeguards: env-var gate (LLM_EXPLAIN_PREDICTIONS=false skips entirely),
+    # and a hard 1.5s wall-clock cap via ThreadPoolExecutor so a slow Groq never
+    # blocks the user — they get the prediction and the explanation is just omitted.
     explanation = None
     if _llm_ready() and os.environ.get("LLM_EXPLAIN_PREDICTIONS", "true").lower() != "false":
+        import concurrent.futures
+        timeout_sec = float(os.environ.get("LLM_EXPLAIN_TIMEOUT_SEC", "1.5"))
         try:
-            explanation = explain_prediction(
-                program=req.program_name, weekday=weekday_he, hour=h, predicted=pred,
-                program_avg=float(feats["lag_program_mean"]),
-                slot_avg=float(feats["lag_slot_mean"]), is_security=is_security,
-            )
-        except Exception:
-            explanation = None  # never let the explanation layer break a prediction
+            with concurrent.futures.ThreadPoolExecutor(max_workers=1) as ex:
+                future = ex.submit(
+                    explain_prediction,
+                    program=req.program_name, weekday=weekday_he, hour=h, predicted=pred,
+                    program_avg=float(feats["lag_program_mean"]),
+                    slot_avg=float(feats["lag_slot_mean"]), is_security=is_security,
+                )
+                explanation = future.result(timeout=timeout_sec)
+        except (concurrent.futures.TimeoutError, Exception):
+            explanation = None  # slow Groq, error, anything → no explanation, fast response
 
     # Reliability classification by historical-broadcast count (DEEP_ANALYSIS §C):
     #   n<5   → cold_start  (~36% higher MAE — show explicit warning)
