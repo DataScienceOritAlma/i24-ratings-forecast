@@ -212,15 +212,17 @@ SUPABASE_URL = (
     or os.environ.get("SUPABASE_URL")
     or "https://bfnmaogcxdgnaxwjdtny.supabase.co"
 )
+# The PUBLISHABLE (=anon) key is meant to be exposed publicly — it's bundled into
+# the Vercel frontend already. Hardcoding it as the ultimate fallback prevents a
+# Render env-var misconfiguration from silently 401-ing every user.
+_DEFAULT_SUPABASE_KEY = "sb_publishable_7RMhqEoPZs73M1ZSbP0Uww_YLE9Nv76"
 SUPABASE_KEY = (
     os.environ.get("NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY")
     or os.environ.get("SUPABASE_PUBLISHABLE_KEY")
     or os.environ.get("SUPABASE_ANON_KEY")
-    or ""
+    or _DEFAULT_SUPABASE_KEY
 )
-if not SUPABASE_KEY:
-    print("[startup] ⚠️  No SUPABASE_PUBLISHABLE_KEY env var found — /predict will return 401 for all requests. "
-          "Set REQUIRE_AUTH=false for local dev to bypass.")
+print(f"[startup] ✓ Supabase config: url={SUPABASE_URL}, key={'<env-var>' if SUPABASE_KEY != _DEFAULT_SUPABASE_KEY else '<hardcoded fallback>'}")
 # Local-dev escape hatch — never set REQUIRE_AUTH=false in production
 _AUTH_REQUIRED = os.environ.get("REQUIRE_AUTH", "true").lower() != "false"
 
@@ -250,7 +252,14 @@ def require_user(authorization: Optional[str] = Header(None)) -> dict:
         raise HTTPException(status_code=503, detail=f"Auth service unavailable: {e}")
 
     if r.status_code != 200:
-        raise HTTPException(status_code=401, detail="Invalid or expired token")
+        # Surface the real reason for easier diagnosis — distinguishes "expired user
+        # token" (the user needs to re-login) from "server-side apikey misconfigured"
+        # (we have a deploy issue). Truncated to avoid leaking secrets.
+        try:
+            reason = r.json().get("msg") or r.json().get("message") or r.text[:120]
+        except Exception:
+            reason = r.text[:120]
+        raise HTTPException(status_code=401, detail=f"Auth check failed ({r.status_code}): {reason}")
 
     return r.json()
 
