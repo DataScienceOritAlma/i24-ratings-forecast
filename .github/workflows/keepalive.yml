@@ -1,20 +1,42 @@
 name: keep-alive
 
 # Pings the live services so the free tiers don't fall asleep (Render/Streamlit
-# sleep after ~15 min idle → slow cold start on the next request). Runs on a
-# schedule and can be triggered manually. A self-contained alternative to
-# UptimeRobot — no external account needed.
+# sleep after ~15 min idle → slow cold start on the next request, often >10s,
+# enough for the browser to throw "Failed to fetch").
+#
+# Reality check on GitHub Actions cron (שלב 85, 2026-06-06):
+# `cron` is best-effort on the free tier — actual fire-rate degrades to ~once per
+# hour under load. With a 15-min sleep policy on Render, a single ping per hour
+# is NOT enough. Each run now loops for ~50 min, pinging every 5 min, so even
+# one fire per hour keeps Render warm for ~83% of the time. Two staggered crons
+# narrow the dead-zone further.
 
 on:
   schedule:
-    - cron: "*/10 * * * *"   # every 10 minutes
+    - cron: "*/10 * * * *"     # primary fire
+    - cron: "5-55/10 * * * *"  # staggered backup — higher odds of GitHub catching at least one
   workflow_dispatch:
+
+# Run the most recent trigger, cancel earlier ones — no overlap or wasted minutes.
+concurrency:
+  group: keepalive
+  cancel-in-progress: true
 
 jobs:
   ping:
     runs-on: ubuntu-latest
+    timeout-minutes: 55
     steps:
-      - name: Ping backend (Render)
-        run: curl -fsS -m 60 https://i24-ratings-api.onrender.com/health || true
-      - name: Ping Streamlit
-        run: curl -fsS -m 60 https://i24-ratings-orit.streamlit.app || true
+      - name: Loop — ping every 5 min for ~50 min (11 pings)
+        run: |
+          set +e
+          BACKEND="https://i24-ratings-api.onrender.com/health"
+          STREAMLIT="https://i24-ratings-orit.streamlit.app"
+          for i in $(seq 1 11); do
+            START=$(date -u +%H:%M:%S)
+            curl -fsS -m 45 "$BACKEND"     -o /dev/null -w "  backend=%{http_code} t=%{time_total}s\n" || echo "  backend FAILED"
+            curl -fsS -m 30 "$STREAMLIT"   -o /dev/null -w "  streamlit=%{http_code} t=%{time_total}s\n" || echo "  streamlit FAILED"
+            echo "ping $i/11 done at $START UTC"
+            [ $i -lt 11 ] && sleep 300
+          done
+          echo "loop complete"
