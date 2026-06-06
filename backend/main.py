@@ -30,7 +30,7 @@ import psycopg
 import requests
 import stripe
 from dotenv import load_dotenv
-from fastapi import Depends, FastAPI, Header, HTTPException, Request
+from fastapi import Body, Depends, FastAPI, Header, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 from slowapi import Limiter, _rate_limit_exceeded_handler
@@ -484,7 +484,7 @@ def health():
 
 @app.post("/ask", response_model=AskResponse)
 @limiter.limit("30/minute")
-def ask(request: Request, req: AskRequest, user: dict = Depends(require_user)):
+def ask(request: Request, req: AskRequest = Body(...), user: dict = Depends(require_user)):
     q = req.question.strip()
     parsed = llm_extract(q)            # LLM parsing if GROQ available
     if parsed and parsed[0]:
@@ -683,7 +683,7 @@ async def stripe_webhook(request: Request):
 
 @app.post("/predict", response_model=PredictResponse)
 @limiter.limit("30/minute")
-def predict(request: Request, req: PredictRequest, user: dict = Depends(require_user)):
+def predict(request: Request, req: PredictRequest = Body(...), user: dict = Depends(require_user)):
     h = req.start_time.hour
     # "special_event" now means a SECURITY event. Holidays were dropped from the
     # model (שלב 57); this fires the strong יום_ביטחוני signal (≈+39% on a
