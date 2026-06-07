@@ -8,6 +8,13 @@ import { supabase } from "@/lib/supabase";
 // line out and use the env var. Production stays bulletproof.
 const API = "https://i24-ratings-api.onrender.com";
 
+// Visible-in-console marker so we can confirm which build the user is loading.
+// Bumping this string forces a new chunk hash on every deploy. שלב 89, 2026-06-07.
+if (typeof window !== "undefined") {
+  // eslint-disable-next-line no-console
+  console.log(`[i24 build v89] API = ${API}`);
+}
+
 // Build headers with the current Supabase access token attached so the
 // backend's require_user() dependency can verify the caller.
 async function authHeaders(): Promise<Record<string, string>> {

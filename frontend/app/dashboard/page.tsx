@@ -1,5 +1,11 @@
 "use client";
 
+// Force dynamic rendering — prevents Vercel's edge CDN from caching the HTML
+// shell. Without this, stale HTML can reference stale JS bundles for hours,
+// even after a deploy. שלב 89, 2026-06-07.
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
