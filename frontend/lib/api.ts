@@ -1,22 +1,12 @@
 import { supabase } from "@/lib/supabase";
 
-// Resolve the backend URL with a strict guard: if the configured env var points
-// to localhost but we're running in the browser on a non-local host (Vercel),
-// IGNORE it. This bug bit prod hard in שלב 86 — Vercel had NEXT_PUBLIC_API_URL
-// stuck on localhost:8000, so every Vercel request tried to hit the user's own
-// machine and threw "Failed to fetch".
-function resolveAPI(): string {
-  const PROD_API = "https://i24-ratings-api.onrender.com";
-  const DEV_API = "http://localhost:8000";
-  const envUrl = process.env.NEXT_PUBLIC_API_URL || "";
-  const envIsLocal = /^https?:\/\/(localhost|127\.0\.0\.1)/.test(envUrl);
-  const isBrowserOnLocal =
-    typeof window !== "undefined" &&
-    /^(localhost|127\.0\.0\.1)$/.test(window.location.hostname);
-  if (envUrl && !(envIsLocal && !isBrowserOnLocal)) return envUrl;
-  return isBrowserOnLocal ? DEV_API : PROD_API;
-}
-const API = resolveAPI();
+// Backend URL — HARDCODED (שלב 88, 2026-06-07). After 3 rounds of trying to
+// resolve via NEXT_PUBLIC_API_URL + auto-detect, Vercel kept serving the env-var
+// value (localhost:8000) and the browser threw "Failed to fetch" on every call.
+// Decision: stop trying to be clever. The Render URL is public anyway. If we
+// ever need local-dev to hit a local backend, the developer should comment this
+// line out and use the env var. Production stays bulletproof.
+const API = "https://i24-ratings-api.onrender.com";
 
 // Build headers with the current Supabase access token attached so the
 // backend's require_user() dependency can verify the caller.
