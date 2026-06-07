@@ -32,6 +32,7 @@ import stripe
 from dotenv import load_dotenv
 from fastapi import Body, Depends, FastAPI, Header, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
@@ -387,6 +388,33 @@ app.add_middleware(
 limiter = Limiter(key_func=get_remote_address)
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
+
+# Global exception handler — CORSMiddleware does NOT add headers to uncaught
+# Python exceptions (the response is built by Starlette below the middleware
+# stack). Without this handler, every 500 turns into a "Failed to fetch" in the
+# browser because the response has no Access-Control-Allow-Origin header, so
+# the user never sees the real error. We log a traceback server-side and echo
+# the exception message back to the caller with proper CORS headers attached.
+@app.exception_handler(Exception)
+async def _unhandled_exception_handler(request: Request, exc: Exception):
+    import traceback as _tb
+    _tb.print_exc()  # goes to Render logs
+
+    origin = request.headers.get("origin", "")
+    cors_headers: dict = {}
+    if origin == "http://localhost:3000" or origin == "http://127.0.0.1:3000" \
+       or re.match(r"^https://.*\.vercel\.app$", origin):
+        cors_headers = {
+            "Access-Control-Allow-Origin": origin,
+            "Access-Control-Allow-Credentials": "true",
+            "Vary": "Origin",
+        }
+    return JSONResponse(
+        status_code=500,
+        content={"detail": f"{type(exc).__name__}: {exc}"},
+        headers=cors_headers,
+    )
 
 # Security headers — defense in depth (HSTS, no-sniff, frame-deny, referrer-policy).
 # These are *response* headers; nothing to configure on the client.
