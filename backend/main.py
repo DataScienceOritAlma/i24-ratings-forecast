@@ -4,8 +4,6 @@
 Loads HistGradientBoosting pipeline from model_saved.joblib, fetches broadcast
 history from Supabase on startup, and serves /predict + /health.
 """
-from __future__ import annotations
-
 import io
 import os
 import re
