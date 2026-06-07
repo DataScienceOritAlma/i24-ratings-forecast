@@ -486,6 +486,21 @@ class CheckoutResponse(BaseModel):
     session_id: str
 
 
+# Rebuild Pydantic models so FastAPI can resolve `Body(...)` annotations.
+# Required because this module uses `from __future__ import annotations`, which
+# turns every type hint into a ForwardRef string. Pydantic 2.10+ refuses to
+# build a TypeAdapter for an unresolved ForwardRef and raises PydanticUserError
+# ("class-not-fully-defined") on the first /predict call — see Render logs from
+# שלב 92. Calling model_rebuild() resolves the forward refs against this
+# module's namespace and makes the models usable by FastAPI's dependency layer.
+PredictRequest.model_rebuild()
+PredictResponse.model_rebuild()
+AskRequest.model_rebuild()
+AskResponse.model_rebuild()
+CheckoutRequest.model_rebuild()
+CheckoutResponse.model_rebuild()
+
+
 # ============================================================
 # Endpoints
 # ============================================================
