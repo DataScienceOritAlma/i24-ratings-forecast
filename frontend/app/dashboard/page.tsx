@@ -319,10 +319,20 @@ export default function DashboardPage() {
             {error && (
               <div className="bg-red-50 border border-red-200 rounded-2xl p-5 text-sm text-red-700">
                 <div className="font-bold mb-1">⚠️ שגיאה</div>
-                <div>{error}</div>
-                <div className="mt-2 text-xs text-red-600">
-                  ודאי שה-Backend רץ ב-localhost:8000
-                </div>
+                <div className="break-words">{error}</div>
+                {error.toLowerCase().includes("failed to fetch") && (
+                  <div className="mt-3 text-xs text-red-600 leading-relaxed">
+                    ה-Backend בענן (Render, plan חינמי) נרדם אחרי 15 דקות חוסר-פעילות והקריאה הראשונה לוקחת 30-60 שניות עד שהוא קם.
+                    <br />
+                    <strong>פתרון:</strong> נסי שוב עוד 30 שניות. הקריאות הבאות יהיו מיידיות.
+                  </div>
+                )}
+                <button
+                  onClick={() => { setError(null); handleSubmit({ preventDefault: () => {} } as React.FormEvent); }}
+                  className="mt-3 text-xs px-3 py-1.5 rounded-full bg-red-600 text-white font-bold hover:bg-red-700 transition"
+                >
+                  🔄 נסי שוב
+                </button>
               </div>
             )}
 
