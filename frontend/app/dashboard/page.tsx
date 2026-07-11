@@ -353,6 +353,17 @@ export default function DashboardPage() {
                     </div>
                   )}
 
+                  {scenario === "special_event" && String(result.metadata?.scenario_effective) === "routine" && (
+                    <div className="mt-4 bg-blue-400/20 border border-blue-300/40 rounded-xl px-3 py-2 text-xs leading-relaxed">
+                      <div className="font-bold text-blue-100 flex items-center gap-1.5">
+                        <span>ℹ️</span>
+                        <span>אין אירוע ביטחוני פעיל בתאריך הזה</span>
+                      </div>
+                      <div className="opacity-85 mt-0.5">
+                        בחרת &quot;אירוע ביטחוני&quot; אבל אין אירוע פעיל ב-{targetDate}. התחזית זהה לשגרה. כדי לראות תרחיש-הסלמה, בחרי תאריך שנופל בתוך חלון-אירוע ידוע (למשל 2026-03-13).
+                      </div>
+                    </div>
+                  )}
                   {result.reliability === "cold_start" && (
                     <div className="mt-4 bg-orange-400/20 border border-orange-300/40 rounded-xl px-3 py-2 text-xs leading-relaxed">
                       <div className="font-bold text-orange-100 flex items-center gap-1.5">

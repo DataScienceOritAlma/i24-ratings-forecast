@@ -165,38 +165,37 @@ KABINET_HISTORY = HISTORY_DF[_kab_mask].copy().sort_values("תאריך שידו�
 print(f"[startup] ✓ Kabinet Shishi live history: {len(KABINET_HISTORY)} rows")
 
 
-def _derive_security_tag(target_date: date_t, scenario_override: str) -> tuple[str, int]:
-    """מחזיר (תג_ביטחוני, is_security_day) לתאריך יעד.
+def _derive_security_tag(target_date: date_t, scenario_override: str) -> tuple[str, int, bool]:
+    """מחזיר (תג_ביטחוני, is_security_day, event_active) לתאריך יעד.
 
-    בשימוש לבניית פיצ'רי sec_* + is_security_day בזמן אינפרנס.
-    - scenario_override='routine': מכריח שגרה גם אם ה-CSV מזהה אירוע (תרחיש "מה אם אין הסלמה").
-    - scenario_override='special_event': משתמש ב-CSV; אם ה-CSV לא מזהה אירוע פעיל, נופל לתג
-      החמור ביותר שנצפה באימון (סימולציית "מה אם הייתה הסלמה").
+    - scenario_override='routine': תמיד שגרה, גם אם CSV מזהה אירוע.
+    - scenario_override='special_event' + אירוע פעיל ב-CSV: מדליק את התג המתאים ואת
+      is_security_day=1. תרחיש אמיתי.
+    - scenario_override='special_event' בלי אירוע פעיל: **לא מדליק is_security_day**.
+      אבלציה הראתה שהמודל נותן +1.6 לתחזית פר is_security_day=1, ללא תלות בתג הספציפי
+      (הtag one-hot לא זזים את המודל). לזייף אירוע ליום שקט = הרעלת התחזית בפיצוץ מזויף.
+      במקום זה: נחזיר scenario כמו routine + דגל event_active=False כדי שה-frontend יציג
+      הודעה: "לא מזוהה אירוע פעיל — התחזית זהה ל-שגרה."
     """
     if scenario_override == "routine":
-        return ("—", 0)
-    # scenario_override == 'special_event' → מסתמכים על ה-CSV
+        return ("—", 0, False)
     ts = pd.Timestamp(target_date)
     active = _EVENTS_DF[
         (_EVENTS_DF["תאריך_התחלה"] <= ts)
         & (_EVENTS_DF["תאריך_סיום"] >= ts)
     ]
-    if not active.empty:
-        # ה-CSV עשוי לרשום כמה אירועים חופפים — מצרפים בשמות + כפי שנעשה באימון.
-        combined = " + ".join(active.sort_values("תאריך_התחלה")["שם_אירוע"].tolist())
-        # אם התג המדויק לא נצפה באימון, נופלים לתג הכי דומה (הכי חמור שראינו)
-        if combined in SEC_LEVELS:
-            return (combined, 1)
-        # ננסה match חלקי — אחד מהחלקים
-        for lvl in SEC_LEVELS:
-            if lvl in combined or combined in lvl:
-                return (lvl, 1)
-        # fallback: התג הארוך ביותר (בקירוב = החמור ביותר)
-        worst = max([l for l in SEC_LEVELS if l != "—"], key=len, default="—")
-        return (worst, 1)
-    # ה-CSV לא מזהה אירוע ליום היעד, אבל המשתמש ביקש special_event → סימולציה
-    worst = max([l for l in SEC_LEVELS if l != "—"], key=len, default="—")
-    return (worst, 1)
+    if active.empty:
+        # אין אירוע פעיל — לא נזייף אחד, אחרת מקבלים פיצוץ שגוי
+        return ("—", 0, False)
+    # ה-CSV עשוי לרשום כמה אירועים חופפים — מצרפים בשמות + כפי שנעשה באימון.
+    combined = " + ".join(active.sort_values("תאריך_התחלה")["שם_אירוע"].tolist())
+    if combined in SEC_LEVELS:
+        return (combined, 1, True)
+    for lvl in SEC_LEVELS:
+        if lvl in combined or combined in lvl:
+            return (lvl, 1, True)
+    # אירוע לא-מוכר — נשתמש בתג "—" אבל עם is_security_day=1 כי יש אירוע (OOD)
+    return ("—", 1, True)
 
 
 def _compute_kabinet_features(target_date: date_t, scenario: str, duration_min: int) -> dict:
@@ -219,7 +218,7 @@ def _compute_kabinet_features(target_date: date_t, scenario: str, duration_min: 
     ts = pd.Timestamp(target_date)
     weeks_since_start = int((ts - START_DATE).days // 7)
 
-    sec_tag, is_security_day = _derive_security_tag(target_date, scenario)
+    sec_tag, is_security_day, event_active = _derive_security_tag(target_date, scenario)
 
     feats = {
         "lag_1": lag_1,
@@ -236,6 +235,7 @@ def _compute_kabinet_features(target_date: date_t, scenario: str, duration_min: 
     for lvl in SEC_LEVELS:
         feats[f"sec_{lvl}"] = 1 if lvl == sec_tag else 0
 
+    feats["_event_active"] = event_active  # לא נכנס למודל; נצרך ב-metadata
     return feats
 
 # ============================================================
@@ -799,6 +799,7 @@ def predict(request: Request, req: PredictRequest = Body(...), user: dict = Depe
 
     # פיצ'רים ייעודיים לקבינט שישי (שלב 98)
     feats = _compute_kabinet_features(req.target_date, req.scenario, dur)
+    event_active = feats.pop("_event_active", False)  # לא פיצ'ר; דגל ל-metadata
     feature_row = pd.DataFrame([feats])[FEATURE_COLS]
 
     try:
@@ -869,6 +870,8 @@ def predict(request: Request, req: PredictRequest = Body(...), user: dict = Depe
             "weekday": weekday_he,
             "hour": h,
             "scenario": req.scenario,
+            "scenario_effective": "special_event" if event_active else "routine",
+            "event_active_on_date": event_active,
             "days_ahead": days_ahead,
             "interval_method": interval_method,
             "lag_1": round(feats["lag_1"], 3),
