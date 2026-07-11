@@ -1,5 +1,19 @@
 # CLAUDE.md — הנחיות לעבודה עם Claude בפרוייקט I24
 
+## 📱 הודעות מהנייד — לקרוא קודם
+
+**בתחילת כל שיחה חדשה בפרויקט הזה, קראי את הקובץ:**
+`C:\Users\user\OneDrive\Claude Mobile Inbox\i24.md`
+
+אם יש שם הוראות חדשות (מעל הקו האופקי, או שלא סומנו ✅) — תזכירי לי ותציעי לטפל בהן לפני שאנחנו ממשיכים למשימה שביקשתי בשיחה.
+
+אם הקובץ ריק או שכל ההוראות סומנו ✅ — אל תזכירי אותו.
+
+הקובץ יושב ב-OneDrive ומסונכרן לנייד — אני עורכת אותו בדרך באפליקציית OneDrive, וההוראות מחכות לי כשאחזור ל-VS Code.
+
+---
+
+
 ## מה הפרוייקט
 
 **המטרה (לפי מנהל המחקר של i24):**  
@@ -31,6 +45,15 @@
 - `retrospective_analysis.py` — ניתוח רטרוספקטיבי: HistGB מול אמת על 1,957 שורות test. מפיק `RETROSPECTIVE.md` + `retrospective_viz/`
 - **`deep_analysis.py`** (שלב 75, 2026-05-30) — חקירה בעומק ברמת senior-DS: 10 ניתוחים (permutation importance, PDP/2D, cold-start, per-program profile, Mixture-of-Experts, quantile + conformal calibration, residual diagnostics + PSI, error clustering, counterfactual, bias heatmap). אידמפוטנטי. מפיק `DEEP_ANALYSIS.md` + `deep_viz/` + `deep_artifacts/`. ממצאי-מפתח: MoE גרוע יותר בכל סטטוס (-2 עד -20%, סוגר הדיון); quantile coverage 56% מכוילים-קונפורמלית ל-76% עם offsets `[-0.05,+0.26]`; counterfactual מאשר ש-event-feature מנוצל חלקית (+0.19 ממוצע מול קפיצות אמיתיות של +0.5+); PSI על פיצ'רי-זמן הוא false-alarm של הפיצול הכרונולוגי.
 - **`deep_analysis_v2.py`** (שלב 81, 2026-06-06) — חלק שני של החקירה: 6 ניתוחים נוספים (Learning curve, Bootstrap MAE CI, Calibration plot, Local explanation, STL seasonality, Anomaly detection). מצרף סעיפים K-P ל-`DEEP_ANALYSIS.md` (אידמפוטנטי). ממצאי-מפתח: דאטה עדכני שווה הרבה (5% אחרונים שיפרו 0.014, יותר מ-1170 שורות לפניהן) — monthly retrain הכרחי לא קוסמטיקה; MAE = 0.30 ± 0.008 (CI 95% [0.286, 0.316]); 56% מהtest מסומן כanomaly וMAE עליהן פי 1.63 גרוע. דורש statsmodels.
+- **`error_analysis_20cases.py`** (שלב 95, 2026-06-07) — הכנה למפגש מנטור 6. בוחר 20 מקרים מ-test (10 הצלחות + 10 פספוסים) מפוזרים לרוחב 3 רצועות אמת (נמוך ≤0.6 / בינוני 0.6-1.5 / גבוה >1.5), עם פונקציית `diversify` שמונעת חזרה על אותו (סטטוס, אירוע). מפיק `ניתוח_שגיאות_20_מקרים.xlsx` — 3 גליונות: 20 מקרים למילוי ידני (4 עמודות "למה" ריקות לזווית התקשורתית), סיכום ביצועי מודל פר רצועה, הוראות. ממצא מרכזי: MAE פר רצועה 0.164/0.346/**0.864**, הטיה ברצועה הגבוהה **−0.793** (HistGB מתכווץ למרכז בקפיצות אירוע ביטחוני).
+- **`enrich_20cases_context.py`** (שלב 96, 2026-06-08) — מעשיר כל אחד מ-20 המקרים בהקשר היסטורי: ממוצע רייטינג של אותה תוכנית באימון, ממוצע באותו חלקי-יום, מספר הופעות, וטופ-2 שידורים אחרים באותו יום (לזיהוי מי "לקח" את הקהל). פיצול כרונולוגי מ-2026-02-08. מפיק `הקשר_20_מקרים.xlsx`.
+- **`build_mentor_prep_docx.js`** (שלב 96, 2026-06-08; הורחב שלב 97, 2026-06-13) — docx-js: בונה את `סיכום_הכנה_מפגש_מנטור_6.docx` — מסמך Word RTL מפורט עם 8 פרקים, 6 טבלאות (ביצועי-רצועות, 20-מקרים, **4-משפחות-טעות**, תרחישים, המלצה-3-מדרגות, סיכום-מקרה-1). פרק 4.5 החדש מציג את 4 משפחות-הטעות שזוהו אחרי תיוג ה-20 ואת המסר שהן מובילות אליו. מבוסס על `ניתוח_שגיאות_20_מקרים.xlsx` + `_cases_data.json`. דורש `npm install docx`. הריצה ב-`node build_mentor_prep_docx.js`.
+- **`fill_20cases_answers.py`** (שלב 97, 2026-06-13) — ממלא את 4 עמודות "למה" לכל 20 המקרים ב-`ניתוח_שגיאות_20_מקרים.xlsx` (בסגנון מקרה 1 מהמסמך), מוסיף עמודת "משפחת-טעות" עם צביעת רקע, ויוצר גליון רביעי "פיזור משפחות". 4 משפחות: A=הגזמה (אירוע מת/שעה משנית, ×4), B=החמצה (יום-1 של אירוע חדש, ×5), C=מדויק (×10), D=אנומליה (case 8 בלבד). אידמפוטנטי.
+- **`regen_cases_json.py`** (שלב 97) — משחזר את `_cases_data.json` מ-`ניתוח_שגיאות_20_מקרים.xlsx`. נחוץ כי הקובץ נמחק אחרי build קודם, ו-`build_mentor_prep_docx.js` תלוי בו.
+- **`kabinet_shishi_model.py`** (שלב 98, 2026-07-11) — פישוט טכני: מודל ייעודי לתוכנית **קבינט שישי** בלבד. מסנן ל-50 שידורים חיים (מתוך 232 שכוללים גם 160 חזרות ו-22 לקטים), בונה פיצ'רי-lag/EMA/rolling + אירועים ביטחוניים (`days_since_event_start`, `event_severity`, `in_event`, `broadcasts_in_current_event` מ-`אירועים_מדויקים.csv`), פיצול כרונולוגי 80/20 (38/10), משווה 3 baselines + Ridge + HistGB. **תוצאות:** HistGB מכוונן-קטן MAE=0.717 (R²=0.19); ב-MAE/mean = 14.6% לעומת 22.4% במודל הכללי — יחסית טוב יותר. **פיצ'רי אירוע לא עזרו:** HistGB התעלם (min_samples_leaf=5 חוסם splits עם 4 שורות "in event" באימון); Ridge החמיר ל-0.851→1.085 (overshoot ל-8.20 מול אמת 6.18 במרץ 2026). התקרה = **חוסר-דאטה של המשטר החדש** (מבצע שאגת הארי התחיל 2026-02-28, train מסתיים 2026-02-06 → אפס דוגמאות אימון של קבינט-שישי-בתוך-אירוע-רמה-9), לא בחירת מודל.
+- **`compare_general_vs_kabinet.py`** (שלב 98, 2026-07-11) — משווה את המודל הכללי (`model_saved.joblib`, MAE=0.300 כללי) מול המודל הייעודי על אותן 10 שורות test של קבינט שישי. **תוצאה:** ייעודי 0.717 מול כללי 1.179 — **המודל הייעודי מנצח ב-39.2%** ו-8/10 שידורים. הכללי כשל שיטתי בקצוות (2026-03-06: חזה 3.49 מול אמת 5.78). בסיס להחלטה להחליף בייצור.
+- **`train_and_save_kabinet_model.py`** (שלב 98, 2026-07-11) — גרסת-ייצור של המודל: אימון על **כל 48 השורות** (בלי train/test split), שמירה ל-`model_kabinet_shishi.joblib`. Bundle: pipeline (HistGB), 16 feature_cols, sec_levels (7 רמות תג_ביטחוני שנצפו), start_date=2025-05-30, y_std=1.061 (לרווחי-ביטחון), recent_history (6 שידורים אחרונים). In-sample MAE=0.147; ה-`expected_test_mae=0.717` מגיע מהניסוי עם ה-split.
+- **`model_kabinet_shishi.joblib`** (16KB) — המודל בייצור מ-2026-07-11. **החליף את `model_saved.joblib`** ב-backend/main.py. נטען עם `sec_levels`, `start_date`, `y_std` כמטא-דאטה.
 
 ### תוצאות
 - `predictions.xlsx` — חיזויי V1 (4 מודלים)
@@ -69,7 +92,7 @@
 - הרצה: `cd frontend && npm install && npm run dev` → http://localhost:3000
 
 ### Backend (FastAPI ML Service — שלב 2, 2026-05-21)
-- `backend/main.py` — FastAPI app: `/health`, `/predict`, `/docs`. טוען `model_saved.joblib` + `model_quantiles.joblib` (אופציונלי, שלב 78) + היסטוריה מ-Supabase ב-startup. **תרחיש `scenario`:** `routine` או `special_event` (=אירוע ביטחוני; מדליק `is_security`, ≈+39%). חגים אינם תרחיש (הוסרו, שלב 57). **רווחי `prediction_low/high`** (שלב 78): מחושבים מ-quantile P10/P90 + conformal offsets (`[-0.054, +0.328]`, כיסוי 79.9%) אם הקובץ קיים; אחרת נופלים חיננית ל-CI הישן (slot_std). **סימוני cold-start** (שלב 79): `cold_start`, `n_historical_broadcasts`, `reliability` (`high`/`medium`/`cold_start`). dev-toggles: `REQUIRE_AUTH=false` עוקף JWT verify, `LLM_EXPLAIN_PREDICTIONS=false` מדלג על Groq (50ms במקום 1-3s).
+- `backend/main.py` — FastAPI app: `/health`, `/predict`, `/docs`. **שלב 98 (2026-07-11):** טוען `model_kabinet_shishi.joblib` (במקום `model_saved.joblib`); quantile+bias יצאו זמנית (לא תואמים לפיצ'רים החדשים); היסטוריה מ-Supabase נשארה אבל מסוננת פעם אחת ל-`KABINET_HISTORY` (50 שידורי-חי) לחישוב lag_1/2/EMA4/rolling4. `אירועים_מדויקים.csv` נטען ב-startup. פונקציה חדשה `_derive_security_tag(target_date, scenario)` ממפה תאריך + scenario ל-תג_ביטחוני שתואם לרמות באימון (`routine`→שגרה; `special_event`→לפי CSV, או תג הכי חמור אם אין אירוע פעיל = סימולציית תרחיש-הסלמה). `_compute_kabinet_features` בונה 16 פיצ'רים. Interval: `pred ± 1.28 * y_std` (`interval_method='y_std_kabinet'`). Metadata חדשה מחזירה את `lag_1`, `lag_2`, `ema_4`, `sec_tag_used`. dev-toggles: `REQUIRE_AUTH=false` עוקף JWT verify, `LLM_EXPLAIN_PREDICTIONS=false` מדלג על Groq. **שלב 92:** `_unhandled_exception_handler` גלובלי (CORS headers ל-uncaught exceptions). **שלב 94:** אסור להוסיף `from __future__ import annotations` (שובר את Pydantic 2.10 model_rebuild).
 - `backend/prediction_logic.py` — חישוב lag features, slot uncertainty, trend (פורט מ-utils/predict.py בלי תלות ב-Streamlit)
 - `backend/requirements.txt` — FastAPI · uvicorn · sklearn · pandas · psycopg · dotenv
 - `backend/render.yaml` — תצורת פריסה אוטומטית ל-Render.com

@@ -15,9 +15,6 @@ interface Message {
 
 const SUGGESTIONS = [
   { icon: "📅", text: "מה הצפי לקבינט שישי ביום שישי הבא?" },
-  { icon: "🌅", text: "כמה רייטינג יהיה לחדר החדשות מחר?" },
-  { icon: "📺", text: "מה התחזית לתוכנית 7 שרון גל בעוד שבוע?" },
-  { icon: "⚡", text: "מה הצפי למהדורה המרכזית באירוע מיוחד?" },
 ];
 
 export default function ChatPage() {
@@ -95,9 +92,9 @@ export default function ChatPage() {
               שאל בעברית טבעית
             </h1>
             <p className="text-muted max-w-md mx-auto mb-8 leading-relaxed">
-              שאלי על תוכנית, תאריך, ושעה — ואקבלי תחזית רייטינג עם רווח-ביטחון של 80%.
+              שאלי על קבינט שישי בלבד — תאריך, שעה, וסצנריו, ותקבלי תחזית רייטינג עם טווח ביטחון.
               <br />
-              <span className="text-sm opacity-80">בלי טפסים. בלי לחיצות. רק שאלה.</span>
+              <span className="text-sm opacity-80">הזרימה הזאת מתמקדת בתוכנית אחת כדי להישאר פשוטה וצבורה.</span>
             </p>
             <div className="grid sm:grid-cols-2 gap-3 w-full max-w-2xl">
               {SUGGESTIONS.map((s) => (

@@ -12,13 +12,6 @@ interface Props {
 const NAV: { href: string; label: string; key: string; external?: boolean }[] = [
   { href: "/dashboard", label: "🎯 חיזוי", key: "dashboard" },
   { href: "/chat", label: "💬 שאל", key: "chat" },
-  { href: "/history", label: "📚 היסטוריה", key: "history" },
-  { href: "/analytics", label: "📊 אנליטיקה", key: "analytics" },
-  { href: "/about", label: "אודות", key: "about" },
-  { href: "/about#stats", label: "מספרים", key: "numbers" },
-  { href: "/about#tech", label: "טכנולוגיה", key: "technology" },
-  { href: "/infographic", label: "🔮 מקסם למדע", key: "infographic" },
-  { href: "/account", label: "👤 חשבון", key: "account" },
 ];
 
 export default function NavBar({ email, title = "לוח חיזוי תחזיות" }: Props) {

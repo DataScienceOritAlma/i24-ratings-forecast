@@ -42,9 +42,7 @@ sys.path.insert(0, str(ROOT))
 from utils.imputers import SimpleMedianImputer, SimpleConstantImputer  # noqa: F401, E402
 
 from prediction_logic import (  # noqa: E402
-    compute_lag_features,
     compute_recent_trend,
-    compute_slot_uncertainty,
     date_to_weekday_he,
     estimate_reception_pct,
     rating_to_viewers,
@@ -69,48 +67,34 @@ def _llm_ready() -> bool:
 # ============================================================
 # Startup — load model + history once
 # ============================================================
-MODEL_PATH = ROOT / "model_saved.joblib"
+# שלב 98 (2026-07-11): המודל הייעודי לקבינט שישי. אומן על 48 שידורים חיים בלבד.
+# ניצח את המודל הכללי ב-39.2% (MAE 0.717 מול 1.179) על 10 שורות test של קבינט שישי.
+# ראה `compare_general_vs_kabinet.py` + WORK_LOG.md #שלב 98.
+MODEL_PATH = ROOT / "model_kabinet_shishi.joblib"
 print(f"[startup] Loading model from {MODEL_PATH}...")
 _MODEL_OBJ = joblib.load(MODEL_PATH)
 PIPELINE = _MODEL_OBJ["pipeline"]
 FEATURE_COLS = _MODEL_OBJ["feature_cols"]
 MODEL_NAME = _MODEL_OBJ["model_name"]
 EXPECTED_MAE = _MODEL_OBJ["expected_test_mae"]
+SEC_LEVELS = _MODEL_OBJ["sec_levels"]              # רשימת ערכי תג_ביטחוני שנצפו באימון
+START_DATE = pd.to_datetime(_MODEL_OBJ["start_date"])
+Y_STD = _MODEL_OBJ["y_std"]                        # לחישוב רווח-ביטחון פשוט
 print(f"[startup] ✓ {MODEL_NAME}, expected MAE = {EXPECTED_MAE}")
+print(f"[startup] ✓ {len(FEATURE_COLS)} features, {len(SEC_LEVELS)} sec levels, start_date={START_DATE.date()}")
 
-# Conformal-calibrated quantile models for honest 80% prediction intervals.
-# See DEEP_ANALYSIS.md §F and train_quantile_models.py. If the file is missing,
-# /predict gracefully falls back to the std-of-slot interval.
-QUANTILE_PATH = ROOT / "model_quantiles.joblib"
+# Quantile bundle + bias corrections disabled — אומנו על המודל הכללי, לא תואמים
+# לפיצ'רים החדשים. יאומנו מחדש בעתיד עם train_quantile_models_kabinet.py.
 _QUANTILE_OBJ = None
-if QUANTILE_PATH.exists():
-    try:
-        _QUANTILE_OBJ = joblib.load(QUANTILE_PATH)
-        print(f"[startup] ✓ Quantile bundle loaded "
-              f"(calibrated coverage={_QUANTILE_OBJ['cal_coverage_calibrated']:.1%}, "
-              f"offsets [-{_QUANTILE_OBJ['offset_low']:.3f}, +{_QUANTILE_OBJ['offset_high']:.3f}])")
-    except Exception as e:
-        print(f"[startup] ⚠️  Failed to load quantile bundle: {e} → fallback to std interval")
-        _QUANTILE_OBJ = None
-else:
-    print("[startup] ⚠️  model_quantiles.joblib not found → fallback to std interval")
-
-# Post-hoc bias corrections per (status × daypart) — DEEP_ANALYSIS §J + שלב 80.
-# See compute_bias_corrections.py. Keys are "status|daypart"; value is added to prediction.
-import json as _json  # local alias to avoid touching the top imports
-BIAS_PATH = ROOT / "bias_corrections.json"
 _BIAS_CORRECTIONS: dict = {}
-if BIAS_PATH.exists():
-    try:
-        _obj = _json.loads(BIAS_PATH.read_text(encoding="utf-8"))
-        _BIAS_CORRECTIONS = _obj.get("corrections", {})
-        print(f"[startup] ✓ Bias corrections loaded: {len(_BIAS_CORRECTIONS)} cells "
-              f"(test MAE {_obj.get('test_mae_before')} → {_obj.get('test_mae_after')})")
-    except Exception as e:
-        print(f"[startup] ⚠️  Failed to load bias_corrections.json: {e}")
-        _BIAS_CORRECTIONS = {}
-else:
-    print("[startup] ⚠️  bias_corrections.json not found → no bias correction applied")
+
+# אירועים ביטחוניים לגזירת תג_ביטחוני לתאריך עתידי (שלב 98)
+EVENTS_CSV_PATH = ROOT / "אירועים_מדויקים.csv"
+_EVENTS_DF = pd.read_csv(EVENTS_CSV_PATH)
+_EVENTS_DF = _EVENTS_DF[_EVENTS_DF["קטגוריה"] == "ביטחוני"].copy()
+_EVENTS_DF["תאריך_התחלה"] = pd.to_datetime(_EVENTS_DF["תאריך_התחלה"])
+_EVENTS_DF["תאריך_סיום"] = pd.to_datetime(_EVENTS_DF["תאריך_סיום"])
+print(f"[startup] ✓ Security events loaded: {len(_EVENTS_DF)} rows")
 
 
 def _load_history() -> pd.DataFrame:
@@ -167,13 +151,92 @@ def _load_history() -> pd.DataFrame:
 
 
 HISTORY_DF = _load_history()
-# Sorted by length DESC so longest-match-wins in extraction
-PROGRAM_CATALOG = sorted(
-    HISTORY_DF["שם תוכנית"].dropna().astype(str).unique().tolist(),
-    key=len,
-    reverse=True,
+# Simplified product scope: only one program is supported in the current cut.
+SCOPE_PROGRAM_NAME = "קבינט שישי"
+PROGRAM_CATALOG = [SCOPE_PROGRAM_NAME]
+print(f"[startup] ✓ scope: {SCOPE_PROGRAM_NAME} only")
+
+# היסטוריה של שידורי-חי של קבינט שישי — בשימוש לחישוב lag_1/2, EMA, rolling.
+_kab_mask = (
+    HISTORY_DF["שם תוכנית"].astype(str).str.contains(SCOPE_PROGRAM_NAME, na=False)
+    & (HISTORY_DF["סטטוס תוכנית"] == "שידור חי")
 )
-print(f"[startup] ✓ catalog: {len(PROGRAM_CATALOG)} unique programs")
+KABINET_HISTORY = HISTORY_DF[_kab_mask].copy().sort_values("תאריך שידור").reset_index(drop=True)
+print(f"[startup] ✓ Kabinet Shishi live history: {len(KABINET_HISTORY)} rows")
+
+
+def _derive_security_tag(target_date: date_t, scenario_override: str) -> tuple[str, int]:
+    """מחזיר (תג_ביטחוני, is_security_day) לתאריך יעד.
+
+    בשימוש לבניית פיצ'רי sec_* + is_security_day בזמן אינפרנס.
+    - scenario_override='routine': מכריח שגרה גם אם ה-CSV מזהה אירוע (תרחיש "מה אם אין הסלמה").
+    - scenario_override='special_event': משתמש ב-CSV; אם ה-CSV לא מזהה אירוע פעיל, נופל לתג
+      החמור ביותר שנצפה באימון (סימולציית "מה אם הייתה הסלמה").
+    """
+    if scenario_override == "routine":
+        return ("—", 0)
+    # scenario_override == 'special_event' → מסתמכים על ה-CSV
+    ts = pd.Timestamp(target_date)
+    active = _EVENTS_DF[
+        (_EVENTS_DF["תאריך_התחלה"] <= ts)
+        & (_EVENTS_DF["תאריך_סיום"] >= ts)
+    ]
+    if not active.empty:
+        # ה-CSV עשוי לרשום כמה אירועים חופפים — מצרפים בשמות + כפי שנעשה באימון.
+        combined = " + ".join(active.sort_values("תאריך_התחלה")["שם_אירוע"].tolist())
+        # אם התג המדויק לא נצפה באימון, נופלים לתג הכי דומה (הכי חמור שראינו)
+        if combined in SEC_LEVELS:
+            return (combined, 1)
+        # ננסה match חלקי — אחד מהחלקים
+        for lvl in SEC_LEVELS:
+            if lvl in combined or combined in lvl:
+                return (lvl, 1)
+        # fallback: התג הארוך ביותר (בקירוב = החמור ביותר)
+        worst = max([l for l in SEC_LEVELS if l != "—"], key=len, default="—")
+        return (worst, 1)
+    # ה-CSV לא מזהה אירוע ליום היעד, אבל המשתמש ביקש special_event → סימולציה
+    worst = max([l for l in SEC_LEVELS if l != "—"], key=len, default="—")
+    return (worst, 1)
+
+
+def _compute_kabinet_features(target_date: date_t, scenario: str, duration_min: int) -> dict:
+    """בונה פיצ'רי-הזנה למודל הייעודי לקבינט שישי."""
+    # lag features מההיסטוריה (שידורי חי לפני target_date)
+    hist = KABINET_HISTORY[
+        pd.to_datetime(KABINET_HISTORY["תאריך שידור"]).dt.date < target_date
+    ].copy()
+    y_hist = pd.to_numeric(hist["רייטינג מותאם"], errors="coerce").dropna()
+
+    if len(y_hist) == 0:
+        # cold start מוחלט — לא אמור לקרות עם דאטה קיים, אבל safety net
+        lag_1 = lag_2 = ema_4 = rolling_mean_4 = _MODEL_OBJ["y_mean"]
+    else:
+        lag_1 = float(y_hist.iloc[-1])
+        lag_2 = float(y_hist.iloc[-2]) if len(y_hist) >= 2 else lag_1
+        ema_4 = float(y_hist.ewm(span=4, adjust=False).mean().iloc[-1])
+        rolling_mean_4 = float(y_hist.tail(4).mean())
+
+    ts = pd.Timestamp(target_date)
+    weeks_since_start = int((ts - START_DATE).days // 7)
+
+    sec_tag, is_security_day = _derive_security_tag(target_date, scenario)
+
+    feats = {
+        "lag_1": lag_1,
+        "lag_2": lag_2,
+        "ema_4": ema_4,
+        "rolling_mean_4": rolling_mean_4,
+        "month": ts.month,
+        "week_of_year": int(ts.isocalendar().week),
+        "weeks_since_start": weeks_since_start,
+        "is_security_day": is_security_day,
+        "duration_min": duration_min,
+    }
+    # sec_* one-hot — קטגורי אחד לפי sec_tag, שאר האפסים
+    for lvl in SEC_LEVELS:
+        feats[f"sec_{lvl}"] = 1 if lvl == sec_tag else 0
+
+    return feats
 
 # ============================================================
 # Stripe (optional — only configured if STRIPE_SECRET_KEY set)
@@ -307,17 +370,10 @@ def extract_date_he(text: str) -> Optional[date_t]:
 
 
 def extract_program(text: str) -> Optional[str]:
-    for name in PROGRAM_CATALOG:
-        if name in text:
-            return name
-    # Try source_name match (program without "ש.ח" suffix)
-    if "שם תוכנית_מקור" in HISTORY_DF.columns:
-        for name in sorted(
-            HISTORY_DF["שם תוכנית_מקור"].dropna().astype(str).unique(),
-            key=len, reverse=True,
-        ):
-            if name and len(name) >= 4 and name in text:
-                return name
+    """Current product scope: only a Friday cabinet query is supported."""
+    lower = text.strip()
+    if "קבינט" in lower or "שישי" in lower:
+        return SCOPE_PROGRAM_NAME
     return None
 
 
@@ -340,14 +396,13 @@ def llm_extract(q: str):
     if not _llm_ready():
         return None
     try:
-        programs = sorted(HISTORY_DF["שם תוכנית_מקור"].dropna().unique().tolist())
         today = date_t.today().isoformat()
         system = (
             "חלץ מהשאלה בעברית והחזר JSON עם המפתחות: "
-            "program_name (התאמה מדויקת לאחד מהשמות ברשימה, או null), "
+            "program_name (חייב להיות 'קבינט שישי' במגבלת הסקופ הזה), "
             f"target_date (פורמט YYYY-MM-DD; היום הוא {today}), "
             "scenario ('special_event' אם מוזכר אירוע/מלחמה/הסלמה/מבצע, אחרת 'routine').\n"
-            f"רשימת התוכניות: {programs}"
+            "רשימת התוכניות: ['קבינט שישי']"
         )
         r = chat_json([{"role": "system", "content": system},
                        {"role": "user", "content": q}])
@@ -725,32 +780,25 @@ async def stripe_webhook(request: Request):
 @app.post("/predict", response_model=PredictResponse)
 @limiter.limit("30/minute")
 def predict(request: Request, req: PredictRequest = Body(...), user: dict = Depends(require_user)):
+    if req.program_name != SCOPE_PROGRAM_NAME:
+        raise HTTPException(
+            status_code=400,
+            detail=f"בגרסה המצומצמת הזו התכונה מוגבלת רק ל-'{SCOPE_PROGRAM_NAME}'.",
+        )
+
     h = req.start_time.hour
-    # "special_event" now means a SECURITY event. Holidays were dropped from the
-    # model (שלב 57); this fires the strong יום_ביטחוני signal (≈+39% on a
-    # typical prime-time program).
-    is_security = req.scenario == "special_event"
-    is_holiday = False
 
-    feats = compute_lag_features(
-        history_df=HISTORY_DF,
-        program_name=req.program_name,
-        target_date=req.target_date,
-        hour=h,
-        status=req.status,
-        is_rerun=(req.status == "שידור חוזר"),
-        is_holiday=is_holiday,
-        is_security=is_security,
-    )
-
-    # Duration
+    # duration
     if req.end_time:
         dur = (req.end_time.hour - req.start_time.hour) * 60 + \
               (req.end_time.minute - req.start_time.minute)
         if dur < 0:
             dur += 24 * 60
-        feats["משך תוכנית_דק"] = dur
+    else:
+        dur = 130  # קבינט שישי בממוצע ~2 שעות
 
+    # פיצ'רים ייעודיים לקבינט שישי (שלב 98)
+    feats = _compute_kabinet_features(req.target_date, req.scenario, dur)
     feature_row = pd.DataFrame([feats])[FEATURE_COLS]
 
     try:
@@ -759,7 +807,7 @@ def predict(request: Request, req: PredictRequest = Body(...), user: dict = Depe
         raise HTTPException(status_code=500, detail=f"Prediction failed: {e}")
 
     # Trend adjustment for far-future dates (capped to ±5%/mo, max 6 months)
-    last_known = HISTORY_DF["תאריך שידור"].max()
+    last_known = KABINET_HISTORY["תאריך שידור"].max() if len(KABINET_HISTORY) else HISTORY_DF["תאריך שידור"].max()
     days_ahead = (pd.to_datetime(req.target_date) - last_known).days
     if days_ahead > 0:
         trend = compute_recent_trend(HISTORY_DF, req.program_name)
@@ -768,47 +816,19 @@ def predict(request: Request, req: PredictRequest = Body(...), user: dict = Depe
 
     pred = max(0.0, pred)
 
-    # Post-hoc bias correction (שלב 80 / DEEP_ANALYSIS §J). Applied BEFORE quantile
-    # intervals so the [low, high] band re-centers around the corrected prediction.
-    bias_key = f"{req.status}|{feats.get('חלקי-יום', '')}"
-    bias_shift = float(_BIAS_CORRECTIONS.get(bias_key, 0.0))
-    if bias_shift != 0.0:
-        pred = max(0.0, pred + bias_shift)
+    # רווח 80%: פשוט, סימטרי מבוסס y_std של קבינט שישי (עד שנאמן quantile ייעודי)
+    # 1.28 = z-score של 80% CI
+    half_width = 1.28 * Y_STD
+    low = max(0.0, pred - half_width)
+    high = pred + half_width
+    interval_method = "y_std_kabinet"
 
     weekday_he = date_to_weekday_he(req.target_date)
-    uncert = compute_slot_uncertainty(HISTORY_DF, req.program_name, h, weekday_he)
-
-    # Prediction interval — prefer conformal-calibrated quantile models (~80% empirical
-    # coverage, validated). Falls back to symmetric std-of-slot if the bundle is missing.
-    # The same bias_shift is applied to P10/P90 so the band stays centered on the corrected
-    # prediction — if the model under-predicts the median by 0.27, it likely also under-
-    # predicts the tails by the same amount.
-    if _QUANTILE_OBJ is not None:
-        try:
-            p10_raw = float(_QUANTILE_OBJ["pipe_p10"].predict(feature_row)[0])
-            p90_raw = float(_QUANTILE_OBJ["pipe_p90"].predict(feature_row)[0])
-            low = max(0.0, p10_raw - _QUANTILE_OBJ["offset_low"] + bias_shift)
-            high = max(low, p90_raw + _QUANTILE_OBJ["offset_high"] + bias_shift)
-            interval_method = "conformal_quantile"
-        except Exception:
-            low = max(0.0, pred - uncert["p80_half_width"])
-            high = pred + uncert["p80_half_width"]
-            interval_method = "slot_std_fallback"
-    else:
-        low = max(0.0, pred - uncert["p80_half_width"])
-        high = pred + uncert["p80_half_width"]
-        interval_method = "slot_std"
-
-    # Project back to "raw rating" scale for households/viewers calibration.
-    # The viewer-conversion ratio (hh_per_point=25000) was calibrated on raw, panel-measured ratings.
     reception_pct = estimate_reception_pct(req.target_date)
     pred_raw = pred * reception_pct
     viewers = rating_to_viewers(pred_raw)
 
-    # LLM explanation is the slowest step (Groq round-trip + retries can hit 30s+).
-    # Two safeguards: env-var gate (LLM_EXPLAIN_PREDICTIONS=false skips entirely),
-    # and a hard 1.5s wall-clock cap via ThreadPoolExecutor so a slow Groq never
-    # blocks the user — they get the prediction and the explanation is just omitted.
+    # LLM explanation — כמו קודם, cap של 1.5s
     explanation = None
     if _llm_ready() and os.environ.get("LLM_EXPLAIN_PREDICTIONS", "true").lower() != "false":
         import concurrent.futures
@@ -818,30 +838,23 @@ def predict(request: Request, req: PredictRequest = Body(...), user: dict = Depe
                 future = ex.submit(
                     explain_prediction,
                     program=req.program_name, weekday=weekday_he, hour=h, predicted=pred,
-                    program_avg=float(feats["lag_program_mean"]),
-                    slot_avg=float(feats["lag_slot_mean"]), is_security=is_security,
+                    program_avg=float(feats["ema_4"]),
+                    slot_avg=float(feats["rolling_mean_4"]),
+                    is_security=bool(feats["is_security_day"]),
                 )
                 explanation = future.result(timeout=timeout_sec)
         except (concurrent.futures.TimeoutError, Exception):
-            explanation = None  # slow Groq, error, anything → no explanation, fast response
+            explanation = None
 
-    # Reliability classification by historical-broadcast count (DEEP_ANALYSIS §C):
-    #   n<5   → cold_start  (~36% higher MAE — show explicit warning)
-    #   5-19  → medium      (warming up — quiet hint, not a warning)
-    #   20+   → high        (no badge)
-    n_hist = int(feats.get("lag_program_n", 0) or 0)
-    if n_hist < 5:
-        reliability = "cold_start"
-    elif n_hist < 20:
-        reliability = "medium"
-    else:
-        reliability = "high"
+    # cold-start: לפי מספר שידורי-חי בהיסטוריה. קבינט שישי הוא veteran (48+).
+    n_hist = int(len(KABINET_HISTORY))
+    reliability = "high" if n_hist >= 20 else "medium" if n_hist >= 5 else "cold_start"
 
     return PredictResponse(
-        predicted_rating=round(pred, 3),                       # adjusted (model target)
+        predicted_rating=round(pred, 3),
         prediction_low=round(low, 3),
         prediction_high=round(high, 3),
-        predicted_rating_raw=round(pred_raw, 3),               # derived raw
+        predicted_rating_raw=round(pred_raw, 3),
         reception_pct_used=reception_pct,
         estimated_households=viewers["households"],
         estimated_viewers=viewers["viewers"],
@@ -858,9 +871,11 @@ def predict(request: Request, req: PredictRequest = Body(...), user: dict = Depe
             "scenario": req.scenario,
             "days_ahead": days_ahead,
             "interval_method": interval_method,
-            "slot_std_basis_n": uncert["n_used"],
-            "slot_std_source": uncert["source"],
-            "bias_correction_applied": round(bias_shift, 3),
+            "lag_1": round(feats["lag_1"], 3),
+            "lag_2": round(feats["lag_2"], 3),
+            "ema_4": round(feats["ema_4"], 3),
+            "sec_tag_used": next((lvl for lvl in SEC_LEVELS if feats.get(f"sec_{lvl}") == 1), "—"),
+            "is_security_day": feats["is_security_day"],
         },
         explanation=explanation,
     )

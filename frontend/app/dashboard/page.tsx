@@ -12,7 +12,6 @@ export default function DashboardPage() {
   const [email, setEmail] = useState<string | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
   const [orgId, setOrgId] = useState<string | null>(null);
-  const [programs, setPrograms] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [result, setResult] = useState<PredictResponse | null>(null);
@@ -44,12 +43,6 @@ export default function DashboardPage() {
         .maybeSingle();
       setOrgId(prof?.organization_id ?? null);
 
-      const { data: progs } = await supabase
-        .from("programs")
-        .select("name")
-        .order("n_broadcasts", { ascending: false })
-        .limit(200);
-      if (progs) setPrograms(progs.map((p) => p.name as string));
     });
   }, [router]);
 
@@ -171,7 +164,7 @@ export default function DashboardPage() {
             <form onSubmit={handleSubmit} className="p-6 space-y-5">
               <div>
                 <label className="block text-sm font-bold mb-1 text-ink">
-                  שם תוכנית
+                  תוכנית נוכחית
                   {programAvg != null && (
                     <span className="text-xs text-muted font-normal mr-2">
                       · ממוצע היסטורי: <strong className="text-brand-primary tabular-nums">{programAvg.toFixed(2)}</strong>
@@ -180,22 +173,12 @@ export default function DashboardPage() {
                 </label>
                 <input
                   type="text"
-                  required
-                  list="programs-list"
+                  readOnly
                   value={programName}
-                  onChange={(e) => setProgramName(e.target.value)}
-                  className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:border-brand-primary focus:ring-2 focus:ring-brand-primary/10 focus:outline-none transition"
-                  placeholder="התחילי להקליד..."
+                  className="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-slate-50 text-ink focus:outline-none"
                 />
-                <datalist id="programs-list">
-                  {programs.map((p) => (
-                    <option key={p} value={p} />
-                  ))}
-                </datalist>
                 <p className="text-xs text-muted mt-1">
-                  {programs.length > 0
-                    ? `${programs.length} תוכניות בקטלוג — הקלידי לקבלת השלמה`
-                    : "טוען קטלוג..."}
+                  המוצר המצומצם עובד רק על ״קבינט שישי״ — אין קלטי תוכניות אחרים.
                 </p>
               </div>
 
