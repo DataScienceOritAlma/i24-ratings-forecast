@@ -3,10 +3,54 @@
 @tailwind utilities;
 
 body {
-  background: #F1F5F9;
-  color: #1A202C;
+  background: #F5F7FA;
+  color: #16202E;
   min-height: 100vh;
+  min-height: 100dvh;
   font-family: var(--font-heebo), "Heebo", Arial, system-ui, sans-serif;
+}
+
+/* ============================================================================
+   Design system — shared building blocks. One card, one field, one button
+   hierarchy (primary / secondary / quiet) across every screen.
+   ========================================================================= */
+@layer components {
+  .card {
+    @apply bg-white border border-line rounded-xl shadow-card;
+  }
+  .label {
+    @apply block text-sm font-medium text-ink mb-1.5;
+  }
+  .field {
+    @apply w-full min-h-[44px] px-3 py-2 rounded-lg border border-slate-300 bg-white text-ink
+           transition-colors duration-150
+           hover:border-slate-400
+           focus:border-brand-primary focus:ring-2 focus:ring-brand-primary/20 focus:outline-none;
+  }
+  .field[readonly] {
+    @apply bg-slate-50 text-muted border-line hover:border-line;
+  }
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 min-h-[44px] px-5 rounded-lg
+           font-bold transition-colors duration-150 cursor-pointer
+           disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+  .btn-primary {
+    @apply btn bg-brand-primary text-white hover:bg-brand-dark;
+  }
+  .btn-secondary {
+    @apply btn bg-white text-brand-dark border border-slate-300 hover:bg-slate-50 hover:border-slate-400;
+  }
+  .btn-quiet {
+    @apply btn px-3 font-medium text-muted hover:text-brand-dark hover:bg-slate-100;
+  }
+  .eyebrow {
+    @apply text-xs font-bold tracking-wide text-brand-primary;
+  }
+  .num {
+    @apply tabular-nums;
+    font-feature-settings: "tnum" 1, "lnum" 1;
+  }
 }
 
 /* RTL-aware input alignment */

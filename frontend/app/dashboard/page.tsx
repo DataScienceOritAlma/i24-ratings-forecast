@@ -6,6 +6,21 @@ import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { predict, type PredictResponse } from "@/lib/api";
 import NavBar from "@/components/NavBar";
+import Icon, { type IconName } from "@/components/Icon";
+
+type Scenario = "routine" | "special_event";
+
+const DATE_SHORTCUTS = [
+  { label: "היום", days: 0 },
+  { label: "מחר", days: 1 },
+  { label: "בעוד שבוע", days: 7 },
+  { label: "בעוד חודש", days: 30 },
+];
+
+const SCENARIOS: { value: Scenario; label: string; hint: string; icon: IconName }[] = [
+  { value: "routine", label: "שגרה", hint: "שבוע רגיל, בלי אירוע חריג", icon: "calendar" },
+  { value: "special_event", label: "אירוע ביטחוני", hint: "הסלמה או אירוע מתפתח", icon: "alert" },
+];
 
 export default function DashboardPage() {
   const router = useRouter();
@@ -18,7 +33,7 @@ export default function DashboardPage() {
   const [error, setError] = useState<string | null>(null);
   const [programAvg, setProgramAvg] = useState<number | null>(null);
 
-  const [programName, setProgramName] = useState("קבינט שישי");
+  const [programName] = useState("קבינט שישי");
   const [targetDate, setTargetDate] = useState(() => {
     const d = new Date();
     d.setDate(d.getDate() + 7);
@@ -26,7 +41,7 @@ export default function DashboardPage() {
   });
   const [startTime, setStartTime] = useState("19:50");
   const [endTime, setEndTime] = useState("22:00");
-  const [scenario, setScenario] = useState<"routine" | "special_event">("routine");
+  const [scenario, setScenario] = useState<Scenario>("routine");
   const [status, setStatus] = useState("שידור חי");
 
   useEffect(() => {
@@ -67,8 +82,7 @@ export default function DashboardPage() {
     return () => { cancelled = true; };
   }, [programName]);
 
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
+  async function runPrediction() {
     setError(null);
     setResult(null);
     setLoading(true);
@@ -122,83 +136,65 @@ export default function DashboardPage() {
     }
   }
 
+  function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    runPrediction();
+  }
+
   if (!email) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-50">
+      <div className="min-h-dvh flex items-center justify-center bg-canvas" role="status">
         <div className="text-center">
-          <div className="inline-block w-12 h-12 border-4 border-brand-primary/20 border-t-brand-primary rounded-full animate-spin" />
+          <div className="inline-block w-10 h-10 border-4 border-brand-primary/20 border-t-brand-primary rounded-full animate-spin" />
           <p className="text-muted mt-3">טוען...</p>
         </div>
       </div>
     );
   }
 
-  // Helpers for result card visualization
-  const ratingScale = 5; // i24 ratings typically 0-3, scale to 5 for safe vis
-  const lowPct = result ? Math.max(0, Math.min(100, (result.prediction_low / ratingScale) * 100)) : 0;
-  const highPct = result ? Math.max(0, Math.min(100, (result.prediction_high / ratingScale) * 100)) : 0;
-  const midPct = result ? Math.max(0, Math.min(100, (result.predicted_rating / ratingScale) * 100)) : 0;
-
   const vsAvg = result && programAvg != null
     ? result.predicted_rating - programAvg
     : null;
 
   return (
-    <main className="min-h-screen bg-slate-50">
+    <main className="min-h-dvh bg-canvas">
       <NavBar email={email} title="לוח חיזוי תחזיות" />
 
-      <div className="max-w-6xl mx-auto px-6 py-8 space-y-6">
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
+        <div className="grid lg:grid-cols-5 gap-6 items-start">
 
-        {/* Main: form + result */}
-        <div className="grid md:grid-cols-5 gap-6">
           {/* Form (3/5) */}
-          <section className="md:col-span-3 bg-white rounded-2xl shadow-card overflow-hidden">
-            <div className="bg-gradient-to-l from-brand-primary/5 to-transparent px-6 py-4 border-b border-slate-100">
-              <h2 className="text-lg font-black text-brand-dark flex items-center gap-2">
-                <span className="text-2xl">🎯</span>
-                חיזוי חדש
-              </h2>
-              <p className="text-xs text-muted mt-0.5">מלאי את הפרטים ולחצי &quot;חשב&quot; — תוצאה תוך שנייה</p>
+          <section className="lg:col-span-3 card" aria-labelledby="form-title">
+            <div className="px-5 sm:px-6 py-4 border-b border-line">
+              <h2 id="form-title" className="text-lg font-bold text-brand-dark">חיזוי חדש</h2>
+              <p className="text-sm text-muted mt-0.5">ארבעה פרטים על השידור, והתחזית מוכנה תוך שנייה.</p>
             </div>
 
-            <form onSubmit={handleSubmit} className="p-6 space-y-5">
+            <form onSubmit={handleSubmit} className="p-5 sm:p-6 space-y-6">
               <div>
-                <label className="block text-sm font-bold mb-1 text-ink">
-                  תוכנית נוכחית
+                <label htmlFor="program" className="label">תוכנית</label>
+                <input id="program" type="text" readOnly value={programName} className="field" aria-describedby="program-help" />
+                <p id="program-help" className="text-xs text-muted mt-1.5">
+                  הגרסה הנוכחית חוזה את ״קבינט שישי״ בלבד.
                   {programAvg != null && (
-                    <span className="text-xs text-muted font-normal mr-2">
-                      · ממוצע היסטורי: <strong className="text-brand-primary tabular-nums">{programAvg.toFixed(2)}</strong>
-                    </span>
+                    <> ממוצע היסטורי: <strong className="text-ink num">{programAvg.toFixed(2)}</strong>.</>
                   )}
-                </label>
-                <input
-                  type="text"
-                  readOnly
-                  value={programName}
-                  className="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-slate-50 text-ink focus:outline-none"
-                />
-                <p className="text-xs text-muted mt-1">
-                  המוצר המצומצם עובד רק על ״קבינט שישי״ — אין קלטי תוכניות אחרים.
                 </p>
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid sm:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-bold mb-1 text-ink">תאריך</label>
+                  <label htmlFor="date" className="label">תאריך השידור</label>
                   <input
+                    id="date"
                     type="date"
                     required
                     value={targetDate}
                     onChange={(e) => setTargetDate(e.target.value)}
-                    className="w-full px-3 py-2.5 rounded-xl border border-slate-200 focus:border-brand-primary focus:ring-2 focus:ring-brand-primary/10 focus:outline-none transition"
+                    className="field"
                   />
-                  <div className="flex gap-1 mt-1.5 flex-wrap">
-                    {[
-                      { label: "היום", days: 0 },
-                      { label: "מחר", days: 1 },
-                      { label: "שבוע", days: 7 },
-                      { label: "חודש", days: 30 },
-                    ].map((s) => (
+                  <div className="flex gap-2 mt-2 flex-wrap">
+                    {DATE_SHORTCUTS.map((s) => (
                       <button
                         key={s.label}
                         type="button"
@@ -207,7 +203,7 @@ export default function DashboardPage() {
                           d.setDate(d.getDate() + s.days);
                           setTargetDate(d.toISOString().slice(0, 10));
                         }}
-                        className="text-xs px-2 py-0.5 rounded-full bg-slate-100 hover:bg-brand-primary hover:text-white transition text-muted"
+                        className="text-xs min-h-[36px] px-3 rounded-full border border-line bg-white text-muted hover:border-brand-primary hover:text-brand-primary transition-colors duration-150 cursor-pointer"
                       >
                         {s.label}
                       </button>
@@ -215,11 +211,12 @@ export default function DashboardPage() {
                   </div>
                 </div>
                 <div>
-                  <label className="block text-sm font-bold mb-1 text-ink">סטטוס</label>
+                  <label htmlFor="status" className="label">סוג השידור</label>
                   <select
+                    id="status"
                     value={status}
                     onChange={(e) => setStatus(e.target.value)}
-                    className="w-full px-3 py-2.5 rounded-xl border border-slate-200 focus:border-brand-primary focus:ring-2 focus:ring-brand-primary/10 focus:outline-none transition bg-white"
+                    className="field"
                   >
                     <option>שידור חי</option>
                     <option>שידור חוזר</option>
@@ -228,246 +225,305 @@ export default function DashboardPage() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-bold mb-1 text-ink">שעת התחלה</label>
+                  <label htmlFor="start" className="label">שעת התחלה</label>
                   <input
+                    id="start"
                     type="time"
                     required
                     value={startTime}
                     onChange={(e) => setStartTime(e.target.value)}
-                    className="w-full px-3 py-2.5 rounded-xl border border-slate-200 focus:border-brand-primary focus:ring-2 focus:ring-brand-primary/10 focus:outline-none transition"
+                    className="field"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-bold mb-1 text-ink">שעת סיום</label>
+                  <label htmlFor="end" className="label">שעת סיום</label>
                   <input
+                    id="end"
                     type="time"
                     value={endTime}
                     onChange={(e) => setEndTime(e.target.value)}
-                    className="w-full px-3 py-2.5 rounded-xl border border-slate-200 focus:border-brand-primary focus:ring-2 focus:ring-brand-primary/10 focus:outline-none transition"
+                    className="field"
                   />
                 </div>
               </div>
 
-              <div>
-                <label className="block text-sm font-bold mb-2 text-ink">תרחיש</label>
-                <div className="grid grid-cols-2 gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setScenario("routine")}
-                    className={`py-3 rounded-xl font-bold transition border-2 ${
-                      scenario === "routine"
-                        ? "bg-brand-primary text-white border-brand-primary shadow-md"
-                        : "bg-slate-50 text-muted border-slate-200 hover:border-slate-300"
-                    }`}
-                  >
-                    <div className="text-lg leading-none">📅</div>
-                    <div className="text-sm mt-1">שגרה</div>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setScenario("special_event")}
-                    className={`py-3 rounded-xl font-bold transition border-2 ${
-                      scenario === "special_event"
-                        ? "bg-brand-accent text-white border-brand-accent shadow-md"
-                        : "bg-slate-50 text-muted border-slate-200 hover:border-slate-300"
-                    }`}
-                  >
-                    <div className="text-lg leading-none">🚨</div>
-                    <div className="text-sm mt-1">אירוע ביטחוני</div>
-                  </button>
+              <fieldset>
+                <legend className="label">תרחיש</legend>
+                <div className="grid sm:grid-cols-2 gap-3">
+                  {SCENARIOS.map((s) => {
+                    const checked = scenario === s.value;
+                    const tone = s.value === "special_event"
+                      ? "peer-checked:border-brand-accent peer-checked:bg-orange-50 peer-checked:text-brand-accent"
+                      : "peer-checked:border-brand-primary peer-checked:bg-blue-50 peer-checked:text-brand-primary";
+                    return (
+                      <label key={s.value} className="cursor-pointer">
+                        <input
+                          type="radio"
+                          name="scenario"
+                          value={s.value}
+                          checked={checked}
+                          onChange={() => setScenario(s.value)}
+                          className="sr-only peer"
+                        />
+                        <span
+                          className={`flex items-center gap-3 min-h-[60px] px-4 py-3 rounded-lg border-2 border-line bg-white text-muted transition-colors duration-150 hover:border-slate-300 peer-focus-visible:ring-2 peer-focus-visible:ring-brand-primary/40 ${tone}`}
+                        >
+                          <Icon name={s.icon} size={22} />
+                          <span>
+                            <span className="block font-bold text-ink">{s.label}</span>
+                            <span className="block text-xs text-muted">{s.hint}</span>
+                          </span>
+                          {checked && <Icon name="check" size={18} className="ms-auto" />}
+                        </span>
+                      </label>
+                    );
+                  })}
                 </div>
-              </div>
+              </fieldset>
 
-              <button
-                type="submit"
-                disabled={loading}
-                className="w-full py-3.5 rounded-xl bg-gradient-to-l from-brand-primary to-brand-dark text-white font-bold text-lg hover:shadow-lg hover:shadow-brand-primary/30 transition disabled:opacity-50 disabled:cursor-not-allowed"
-              >
+              <button type="submit" disabled={loading} className="btn-primary w-full text-base">
                 {loading ? (
-                  <span className="inline-flex items-center gap-2">
+                  <>
                     <span className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />
                     מחשב...
-                  </span>
+                  </>
                 ) : (
-                  "🚀 חשב תחזית"
+                  "חשב תחזית"
                 )}
               </button>
             </form>
           </section>
 
           {/* Result (2/5) */}
-          <section className="md:col-span-2 space-y-4">
+          <section className="lg:col-span-2 space-y-4" aria-live="polite" aria-label="תוצאת החיזוי">
             {error && (
-              <div className="bg-red-50 border border-red-200 rounded-2xl p-5 text-sm text-red-700">
-                <div className="font-bold mb-1">⚠️ שגיאה</div>
+              <div className="card border-red-200 bg-red-50 p-5 text-sm text-red-800" role="alert">
+                <div className="font-bold mb-1 flex items-center gap-2">
+                  <Icon name="alert" size={18} />
+                  החיזוי לא הצליח
+                </div>
                 <div className="break-words">{error}</div>
                 {error.toLowerCase().includes("failed to fetch") && (
-                  <div className="mt-3 text-xs text-red-600 leading-relaxed">
-                    ה-Backend בענן (Render, plan חינמי) נרדם אחרי 15 דקות חוסר-פעילות והקריאה הראשונה לוקחת 30-60 שניות עד שהוא קם.
-                    <br />
-                    <strong>פתרון:</strong> נסי שוב עוד 30 שניות. הקריאות הבאות יהיו מיידיות.
-                  </div>
+                  <p className="mt-3 text-xs leading-relaxed">
+                    השרת נרדם אחרי 15 דקות בלי פעילות, והקריאה הראשונה אחרי הפסקה לוקחת 30 עד 60 שניות.
+                    נסי שוב בעוד חצי דקה. הקריאות הבאות יהיו מיידיות.
+                  </p>
                 )}
-                <button
-                  onClick={() => { setError(null); handleSubmit({ preventDefault: () => {} } as React.FormEvent); }}
-                  className="mt-3 text-xs px-3 py-1.5 rounded-full bg-red-600 text-white font-bold hover:bg-red-700 transition"
-                >
-                  🔄 נסי שוב
+                <button onClick={runPrediction} className="btn mt-3 min-h-[40px] px-4 text-sm bg-red-700 text-white hover:bg-red-800">
+                  <Icon name="refresh" size={16} />
+                  נסי שוב
                 </button>
               </div>
             )}
 
+            {loading && !result && (
+              <div className="card p-6" aria-hidden="true">
+                <div className="h-4 w-32 rounded bg-slate-200 animate-pulse" />
+                <div className="h-14 w-40 rounded bg-slate-200 animate-pulse mt-3" />
+                <div className="h-3 w-full rounded bg-slate-200 animate-pulse mt-8" />
+                <div className="grid grid-cols-2 gap-3 mt-6">
+                  <div className="h-16 rounded-lg bg-slate-100 animate-pulse" />
+                  <div className="h-16 rounded-lg bg-slate-100 animate-pulse" />
+                </div>
+              </div>
+            )}
+
             {result && (
-              <div className="bg-gradient-to-br from-brand-dark via-brand-primary to-brand-light text-white rounded-2xl shadow-card p-6 relative overflow-hidden">
-                <div className="absolute inset-0 opacity-20" style={{
-                  background: "radial-gradient(circle at 80% 0%, rgba(255,107,53,0.5) 0%, transparent 50%)"
-                }} />
-                <div className="relative">
-                  <div className="flex items-start justify-between mb-1">
-                    <div className="text-xs opacity-80">תחזית רייטינג מותאם</div>
+              <article className="card overflow-hidden">
+                <div className="p-5 sm:p-6">
+                  <div className="flex items-start justify-between gap-3">
+                    <h2 className="text-sm font-medium text-muted">תחזית רייטינג מותאם</h2>
                     {vsAvg != null && (
                       <span
-                        className={`text-xs px-2 py-0.5 rounded-full font-bold ${
-                          vsAvg >= 0 ? "bg-green-400/20 text-green-100" : "bg-red-400/20 text-red-100"
+                        className={`inline-flex items-center gap-1 text-xs px-2 py-1 rounded-full font-bold whitespace-nowrap ${
+                          vsAvg >= 0 ? "bg-emerald-50 text-emerald-800" : "bg-red-50 text-red-800"
                         }`}
                       >
-                        {vsAvg >= 0 ? "↑" : "↓"} {Math.abs(vsAvg).toFixed(2)} מהממוצע
+                        <Icon name={vsAvg >= 0 ? "trendingUp" : "trendingDown"} size={14} />
+                        <span className="num">{Math.abs(vsAvg).toFixed(2)}</span>
+                        {vsAvg >= 0 ? "מעל הממוצע" : "מתחת לממוצע"}
                       </span>
                     )}
                   </div>
-                  <div className="text-6xl font-black tabular-nums leading-none">
+
+                  <div className="text-6xl font-bold text-brand-dark num leading-none mt-2">
                     {result.predicted_rating.toFixed(2)}
                   </div>
 
                   {result.predicted_rating_raw != null && (
-                    <div className="mt-2 text-xs opacity-80 flex items-center gap-1.5">
-                      <span>גולמי משוער:</span>
-                      <span className="font-bold tabular-nums">{result.predicted_rating_raw.toFixed(2)}</span>
+                    <p className="mt-2 text-xs text-muted">
+                      רייטינג גולמי משוער: <strong className="text-ink num">{result.predicted_rating_raw.toFixed(2)}</strong>
                       {result.reception_pct_used != null && (
-                        <span className="opacity-70">
-                          · קליטת פאנל {Math.round(result.reception_pct_used * 100)}%
-                        </span>
+                        <> · קליטת פאנל <span className="num">{Math.round(result.reception_pct_used * 100)}%</span></>
                       )}
-                    </div>
+                    </p>
                   )}
 
-                  {scenario === "special_event" && String(result.metadata?.scenario_effective) === "routine" && (
-                    <div className="mt-4 bg-blue-400/20 border border-blue-300/40 rounded-xl px-3 py-2 text-xs leading-relaxed">
-                      <div className="font-bold text-blue-100 flex items-center gap-1.5">
-                        <span>ℹ️</span>
-                        <span>אין אירוע ביטחוני פעיל בתאריך הזה</span>
-                      </div>
-                      <div className="opacity-85 mt-0.5">
-                        בחרת &quot;אירוע ביטחוני&quot; אבל אין אירוע פעיל ב-{targetDate}. התחזית זהה לשגרה. כדי לראות תרחיש-הסלמה, בחרי תאריך שנופל בתוך חלון-אירוע ידוע (למשל 2026-03-13).
-                      </div>
-                    </div>
-                  )}
-                  {result.reliability === "cold_start" && (
-                    <div className="mt-4 bg-orange-400/20 border border-orange-300/40 rounded-xl px-3 py-2 text-xs leading-relaxed">
-                      <div className="font-bold text-orange-100 flex items-center gap-1.5">
-                        <span>⚠️</span>
-                        <span>אי-וודאות גבוהה — תוכנית חדשה</span>
-                      </div>
-                      <div className="opacity-85 mt-0.5">
-                        רק {result.n_historical_broadcasts ?? 0} שידורים היסטוריים — המודל "לא הכיר" אותה מספיק כדי לחזות בביטחון. הרווח רחב בכוונה.
-                      </div>
-                    </div>
-                  )}
-                  {result.reliability === "medium" && (
-                    <div className="mt-4 bg-yellow-300/15 border border-yellow-300/30 rounded-xl px-3 py-1.5 text-[11px] opacity-90 flex items-center gap-1.5">
-                      <span>💡</span>
-                      <span>{result.n_historical_broadcasts} שידורים בלבד — אמינות בינונית</span>
-                    </div>
-                  )}
+                  <RangeBar
+                    low={result.prediction_low}
+                    high={result.prediction_high}
+                    point={result.predicted_rating}
+                    avg={programAvg}
+                  />
 
-                  {/* Confidence visualization */}
-                  <div className="mt-5">
-                    <div className="flex items-center justify-between text-xs opacity-80 mb-1.5">
-                      <span>טווח 80% ביטחון</span>
-                      <span className="tabular-nums">
-                        {result.prediction_low.toFixed(2)} — {result.prediction_high.toFixed(2)}
-                      </span>
-                    </div>
-                    <div className="relative h-3 bg-white/10 rounded-full overflow-hidden">
-                      <div
-                        className="absolute h-full bg-gradient-to-l from-brand-accent/40 to-white/30 rounded-full"
-                        style={{ insetInlineStart: `${lowPct}%`, width: `${Math.max(0, highPct - lowPct)}%` }}
-                      />
-                      <div
-                        className="absolute top-1/2 -translate-y-1/2 w-1 h-5 bg-white shadow-lg rounded-full"
-                        style={{ insetInlineStart: `${midPct}%`, transform: "translate(50%, -50%)" }}
-                      />
-                    </div>
-                    <div className="flex justify-between text-[10px] opacity-60 mt-1 tabular-nums">
-                      <span>0</span>
-                      <span>{ratingScale}</span>
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-3 mt-5">
-                    <div className="bg-white/10 backdrop-blur rounded-xl p-3 text-center">
-                      <div className="text-2xl font-black tabular-nums">
+                  <dl className="grid grid-cols-2 gap-3 mt-6">
+                    <div className="rounded-lg bg-canvas border border-line p-3">
+                      <dt className="text-xs text-muted">בתי אב</dt>
+                      <dd className="text-xl font-bold text-ink num mt-0.5">
                         {result.estimated_households.toLocaleString("he-IL")}
-                      </div>
-                      <div className="text-xs opacity-80">בתי-אב</div>
+                      </dd>
                     </div>
-                    <div className="bg-white/10 backdrop-blur rounded-xl p-3 text-center">
-                      <div className="text-2xl font-black tabular-nums">
+                    <div className="rounded-lg bg-canvas border border-line p-3">
+                      <dt className="text-xs text-muted">צופים</dt>
+                      <dd className="text-xl font-bold text-ink num mt-0.5">
                         {result.estimated_viewers.toLocaleString("he-IL")}
-                      </div>
-                      <div className="text-xs opacity-80">צופים</div>
+                      </dd>
                     </div>
+                  </dl>
+
+                  <div className="space-y-3 mt-5 empty:hidden">
+                    {scenario === "special_event" && String(result.metadata?.scenario_effective) === "routine" && (
+                      <Callout tone="info" title="אין אירוע ביטחוני פעיל בתאריך הזה">
+                        בחרת ״אירוע ביטחוני״, אבל אין אירוע פעיל ב-<span className="num" dir="ltr">{targetDate}</span>, ולכן התחזית זהה לשגרה.
+                        כדי לראות תרחיש הסלמה, בחרי תאריך בתוך חלון אירוע ידוע (למשל <span className="num" dir="ltr">2026-03-13</span>).
+                      </Callout>
+                    )}
+                    {result.reliability === "cold_start" && (
+                      <Callout tone="warn" title="אי-ודאות גבוהה: תוכנית חדשה">
+                        יש רק <span className="num">{result.n_historical_broadcasts ?? 0}</span> שידורים היסטוריים, והמודל עוד לא מכיר את התוכנית מספיק. הטווח רחב בכוונה.
+                      </Callout>
+                    )}
+                    {result.reliability === "medium" && (
+                      <Callout tone="warn" title="אמינות בינונית">
+                        התחזית נשענת על <span className="num">{result.n_historical_broadcasts}</span> שידורים בלבד.
+                      </Callout>
+                    )}
                   </div>
 
                   {result.explanation && (
-                    <div className="mt-4 bg-white/10 backdrop-blur rounded-xl p-3 text-sm leading-relaxed">
-                      <div className="text-xs opacity-70 mb-1">💡 הסבר</div>
-                      {result.explanation}
+                    <div className="mt-5 pt-5 border-t border-line">
+                      <h3 className="text-xs font-bold text-muted mb-1.5 flex items-center gap-1.5">
+                        <Icon name="lightbulb" size={14} />
+                        למה זו התחזית
+                      </h3>
+                      <p className="text-sm leading-relaxed text-ink">{result.explanation}</p>
                     </div>
                   )}
-
-                  <div className="mt-4 text-xs opacity-70 border-t border-white/20 pt-3 flex justify-between">
-                    <span>{result.model}</span>
-                    <span>{saving ? "שומר..." : "נשמר ✓"}</span>
-                  </div>
                 </div>
-              </div>
+
+                <footer className="px-5 sm:px-6 py-3 bg-canvas border-t border-line text-xs text-muted flex justify-between gap-3">
+                  <span dir="ltr" className="truncate">{result.model}</span>
+                  <span className="inline-flex items-center gap-1 whitespace-nowrap">
+                    {saving ? "שומר..." : (<><Icon name="check" size={14} /> נשמר בהיסטוריה</>)}
+                  </span>
+                </footer>
+              </article>
             )}
 
-            {!error && !result && (
-              <div className="bg-white rounded-2xl shadow-card p-6 text-center">
-                <div className="text-5xl mb-3">📊</div>
-                <h3 className="font-black text-brand-dark mb-1">מוכן לחיזוי</h3>
-                <p className="text-sm text-muted">
-                  מלאי את הטופס ולחצי &quot;חשב תחזית&quot; כדי לראות את התוצאה.
+            {!error && !result && !loading && (
+              <div className="card p-6 text-center">
+                <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-blue-50 text-brand-primary">
+                  <Icon name="chart" size={24} />
+                </div>
+                <h2 className="font-bold text-brand-dark mt-3">התחזית תופיע כאן</h2>
+                <p className="text-sm text-muted mt-1">
+                  מלאי את הטופס ולחצי ״חשב תחזית״.
                 </p>
-                <div className="mt-4 pt-4 border-t border-slate-100">
-                  <Link
-                    href="/chat"
-                    className="text-sm text-brand-primary hover:text-brand-dark font-bold inline-flex items-center gap-1"
-                  >
-                    💬 או נסי לשאול בעברית טבעית ←
-                  </Link>
-                </div>
+                <Link href="/chat" className="btn-quiet mt-3 text-sm text-brand-primary">
+                  או שאלי בעברית חופשית
+                  <Icon name="arrowLeft" size={16} />
+                </Link>
               </div>
             )}
 
-            {/* Tip card */}
-            <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 text-sm">
-              <div className="font-bold text-amber-900 mb-1 flex items-center gap-1.5">
-                <span>💡</span> טיפ
-              </div>
-              <p className="text-amber-800 leading-relaxed">
-                לתכנון תרחישים — קבעי &quot;אירוע ביטחוני&quot; כדי לראות את הקפיצה הצפויה ברייטינג בזמן הסלמה.
-              </p>
-            </div>
+            <Callout tone="tip" title="תכנון תרחישים">
+              בחרי ״אירוע ביטחוני״ כדי לראות את הקפיצה הצפויה ברייטינג בזמן הסלמה, והשווי אותה לתחזית השגרה.
+            </Callout>
           </section>
         </div>
-
       </div>
     </main>
   );
 }
 
+// 80% interval on a numeric scale. Numeric axes read left-to-right even in a
+// Hebrew interface, so the bar is laid out LTR.
+function RangeBar({ low, high, point, avg }: { low: number; high: number; point: number; avg: number | null }) {
+  const max = Math.max(5, Math.ceil(Math.max(high, avg ?? 0) * 1.15));
+  const pct = (v: number) => Math.max(0, Math.min(100, (v / max) * 100));
+
+  return (
+    <div className="mt-6">
+      <div className="flex items-baseline justify-between text-xs mb-2">
+        <span className="text-muted">טווח ביטחון של 80%</span>
+        <span className="num font-bold text-ink" dir="ltr">
+          {low.toFixed(2)} – {high.toFixed(2)}
+        </span>
+      </div>
+
+      <div
+        dir="ltr"
+        className="relative h-8"
+        role="img"
+        aria-label={`תחזית ${point.toFixed(2)}, בטווח של ${low.toFixed(2)} עד ${high.toFixed(2)}${avg != null ? `, ממוצע היסטורי ${avg.toFixed(2)}` : ""}`}
+      >
+        <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 h-2 rounded-full bg-slate-200" />
+        <div
+          className="absolute top-1/2 -translate-y-1/2 h-2 rounded-full bg-brand-primary/35"
+          style={{ left: `${pct(low)}%`, width: `${Math.max(0, pct(high) - pct(low))}%` }}
+        />
+        {avg != null && (
+          <div
+            className="absolute top-1 bottom-1 w-0 border-l-2 border-dashed border-slate-500"
+            style={{ left: `${pct(avg)}%` }}
+          />
+        )}
+        <div
+          className="absolute top-1/2 w-4 h-4 -translate-x-1/2 -translate-y-1/2 rounded-full bg-brand-dark ring-2 ring-white"
+          style={{ left: `${pct(point)}%` }}
+        />
+      </div>
+
+      <div dir="ltr" className="flex justify-between text-[11px] text-muted num mt-1">
+        <span>0</span>
+        <span>{max / 2}</span>
+        <span>{max}</span>
+      </div>
+
+      <ul className="flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-muted mt-2">
+        <li className="inline-flex items-center gap-1.5">
+          <span className="w-2.5 h-2.5 rounded-full bg-brand-dark" aria-hidden="true" /> תחזית
+        </li>
+        <li className="inline-flex items-center gap-1.5">
+          <span className="w-4 h-2 rounded-full bg-brand-primary/35" aria-hidden="true" /> טווח 80%
+        </li>
+        {avg != null && (
+          <li className="inline-flex items-center gap-1.5">
+            <span className="w-0 h-3 border-l-2 border-dashed border-slate-500" aria-hidden="true" /> ממוצע היסטורי
+          </li>
+        )}
+      </ul>
+    </div>
+  );
+}
+
+const CALLOUT_TONES = {
+  info: { box: "bg-blue-50 border-blue-200 text-blue-900", icon: "info" },
+  warn: { box: "bg-amber-50 border-amber-200 text-amber-900", icon: "alert" },
+  tip: { box: "bg-white border-line text-ink", icon: "lightbulb" },
+} as const;
+
+function Callout({ tone, title, children }: { tone: keyof typeof CALLOUT_TONES; title: string; children: React.ReactNode }) {
+  const t = CALLOUT_TONES[tone];
+  return (
+    <div className={`rounded-lg border px-4 py-3 text-sm leading-relaxed ${t.box}`}>
+      <div className="font-bold flex items-center gap-2">
+        <Icon name={t.icon} size={16} />
+        {title}
+      </div>
+      <div className="mt-1 opacity-90">{children}</div>
+    </div>
+  );
+}
