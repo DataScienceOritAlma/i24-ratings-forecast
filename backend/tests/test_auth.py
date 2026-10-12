@@ -42,7 +42,11 @@ def test_predict_rejects_invalid_token(client, predict_body):
             json=predict_body,
         )
     assert r.status_code == 401
-    assert "Invalid" in r.json()["detail"]
+    # שלב 83 החליף הודעה כללית בהודעה שמוסרת מה Supabase ענה, כדי שתקלת
+    # הגדרה ב-Render לא תיראה כמו משתמש לא מורשה. זה מה שנבדק כאן: גם
+    # הסטטוס שחזר מלמעלה וגם הנימוק חייבים להופיע בהודעה.
+    detail = r.json()["detail"]
+    assert "401" in detail and "invalid token" in detail, detail
 
 
 def test_ask_also_locked(client):
@@ -68,7 +72,13 @@ def test_predict_passes_with_valid_token(client, predict_body):
     assert "predicted_rating" in body
     assert "prediction_low" in body
     assert "prediction_high" in body
-    # Quantile interval should be in use (שלב 78)
-    assert body["uncertainty_source"] in ("conformal_quantile", "slot_std", "slot_std_fallback")
-    # Asymmetric interval expected when quantile_obj loaded
+    # מקור אי-הוודאות: מאז שלב 98 קבינט שישי רץ על מודל ייעודי, והרווח נגזר
+    # מ-y_std שלו. הבדיקה הישנה עוד ציפתה לשמות מלפני כן, ולכן נכשלה אף
+    # שהקוד תקין. נבדק כאן מה שבאמת חייב להתקיים: השדה מלא, הוא אחד
+    # מהמקורות המוכרים, והוא זהה למה שמדווח ב-metadata.
+    known_sources = ("y_std_kabinet", "conformal_quantile", "slot_std", "slot_std_fallback")
+    assert body["uncertainty_source"] in known_sources, body["uncertainty_source"]
+    assert body["metadata"]["interval_method"] == body["uncertainty_source"]
+    # הרווח חייב להקיף את התחזית
     assert body["prediction_low"] <= body["predicted_rating"] <= body["prediction_high"]
+    assert body["prediction_low"] < body["prediction_high"], "a zero-width interval is not an interval"
