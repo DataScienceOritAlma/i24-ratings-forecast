@@ -5,6 +5,8 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import NavBar from "@/components/NavBar";
+import Icon, { type IconName } from "@/components/Icon";
+import RangeBar, { rangeScaleMax } from "@/components/RangeBar";
 import { PredictionCardSkeleton } from "@/components/Skeleton";
 
 interface Prediction {
@@ -23,6 +25,12 @@ interface Prediction {
   uncertainty_source: string | null;
   created_at: string;
 }
+
+const FILTERS = [
+  { k: "all", label: "הכול" },
+  { k: "routine", label: "שגרה" },
+  { k: "special_event", label: "אירועים" },
+] as const;
 
 export default function HistoryPage() {
   const router = useRouter();
@@ -86,11 +94,17 @@ export default function HistoryPage() {
     return { total: predictions.length, avgRating: avg, topProgram, specialCount };
   }, [predictions]);
 
+  // One scale for every card, so the bars are comparable down the page.
+  const scaleMax = useMemo(
+    () => rangeScaleMax(...(predictions ?? []).map((p) => p.prediction_high)),
+    [predictions],
+  );
+
   if (!email) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-50">
+      <div className="min-h-dvh flex items-center justify-center bg-canvas" role="status">
         <div className="text-center">
-          <div className="inline-block w-12 h-12 border-4 border-brand-primary/20 border-t-brand-primary rounded-full animate-spin" />
+          <div className="inline-block w-10 h-10 border-4 border-brand-primary/20 border-t-brand-primary rounded-full animate-spin" />
           <p className="text-muted mt-3">טוען...</p>
         </div>
       </div>
@@ -98,13 +112,14 @@ export default function HistoryPage() {
   }
 
   return (
-    <main className="min-h-screen bg-slate-50">
+    <main className="min-h-dvh bg-canvas">
       <NavBar email={email} title="היסטוריית תחזיות" />
 
-      <div className="max-w-6xl mx-auto px-6 py-8 space-y-6">
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 py-6 space-y-6">
         {error && (
-          <div className="bg-red-50 border border-red-200 rounded-2xl p-4 text-sm text-red-700">
-            <strong>שגיאה בטעינת היסטוריה:</strong> {error}
+          <div className="card border-red-200 bg-red-50 p-4 text-sm text-red-800 flex gap-2" role="alert">
+            <Icon name="alert" size={18} />
+            <span><strong>ההיסטוריה לא נטענה.</strong> {error}</span>
           </div>
         )}
 
@@ -112,84 +127,63 @@ export default function HistoryPage() {
           <>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
               {Array.from({ length: 4 }).map((_, i) => (
-                <div key={i} className="bg-white rounded-2xl shadow-card p-4 h-20 animate-pulse" />
+                <div key={i} className="card p-4 h-20 animate-pulse" />
               ))}
             </div>
-            <div className="grid sm:grid-cols-2 gap-4">
-              {Array.from({ length: 4 }).map((_, i) => (
+            <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {Array.from({ length: 3 }).map((_, i) => (
                 <PredictionCardSkeleton key={i} />
               ))}
             </div>
           </>
         )}
 
-        {predictions && predictions.length === 0 && (
-          <div className="bg-white rounded-2xl shadow-card p-10 text-center">
-            <div className="text-5xl mb-4">📊</div>
-            <h2 className="text-xl font-black text-brand-dark mb-2">
-              עדיין אין תחזיות
-            </h2>
-            <p className="text-muted mb-6">
-              צרי את התחזית הראשונה שלך בלוח החיזוי, והיא תופיע כאן.
+        {predictions && predictions.length === 0 && !error && (
+          <div className="card p-10 text-center">
+            <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-blue-50 text-brand-primary">
+              <Icon name="history" size={24} />
+            </div>
+            <h2 className="text-xl font-bold text-brand-dark mt-4">עדיין אין תחזיות</h2>
+            <p className="text-muted mt-1 mb-6">
+              כל תחזית שתחשבי בלוח החיזוי נשמרת כאן אוטומטית.
             </p>
-            <Link
-              href="/dashboard"
-              className="inline-block px-5 py-2.5 rounded-xl bg-brand-primary text-white font-bold hover:bg-brand-dark transition"
-            >
-              🎯 לחיזוי הראשון
+            <Link href="/dashboard" className="btn-primary">
+              לחיזוי הראשון
+              <Icon name="arrowLeft" size={18} />
             </Link>
           </div>
         )}
 
         {predictions && predictions.length > 0 && (
           <>
-            {/* Summary KPIs */}
-            <section className="grid grid-cols-2 md:grid-cols-4 gap-3">
-              <SummaryCard label="סך תחזיות" value={summary.total.toString()} icon="📊" />
-              <SummaryCard
-                label="רייטינג ממוצע"
-                value={summary.avgRating.toFixed(2)}
-                icon="🎯"
-                accent
-              />
-              <SummaryCard
-                label="הכי נחזית"
-                value={summary.topProgram}
-                icon="⭐"
-                smallValue
-              />
-              <SummaryCard
-                label="אירועים ביטחוניים"
-                value={summary.specialCount.toString()}
-                icon="🚨"
-              />
+            <section aria-label="סיכום" className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              <SummaryCard label="סך התחזיות" value={summary.total.toLocaleString("he-IL")} icon="history" />
+              <SummaryCard label="רייטינג חזוי ממוצע" value={summary.avgRating.toFixed(2)} icon="target" />
+              <SummaryCard label="התוכנית הנחזית ביותר" value={summary.topProgram} icon="chart" smallValue />
+              <SummaryCard label="תרחישי אירוע ביטחוני" value={summary.specialCount.toLocaleString("he-IL")} icon="alert" />
             </section>
 
-            {/* Filters */}
-            <section className="bg-white rounded-2xl shadow-card p-4 flex flex-wrap gap-3 items-center">
+            <section aria-label="סינון" className="card p-3 flex flex-wrap gap-3 items-center">
               <div className="flex-1 min-w-[200px] relative">
-                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted">🔍</span>
+                <label htmlFor="search" className="sr-only">חיפוש לפי שם תוכנית</label>
+                <Icon name="search" size={18} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted pointer-events-none" />
                 <input
-                  type="text"
+                  id="search"
+                  type="search"
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
-                  placeholder="חפשי לפי שם תוכנית..."
-                  className="w-full px-4 py-2 pr-10 rounded-xl border border-slate-200 focus:border-brand-primary focus:ring-2 focus:ring-brand-primary/10 focus:outline-none transition"
+                  placeholder="חיפוש לפי שם תוכנית"
+                  className="field pr-10"
                 />
               </div>
-              <div className="flex gap-1.5 p-1 bg-slate-100 rounded-xl">
-                {([
-                  { k: "all", label: "הכל" },
-                  { k: "routine", label: "שגרה" },
-                  { k: "special_event", label: "אירועים" },
-                ] as const).map((f) => (
+              <div className="flex gap-1 p-1 bg-slate-100 rounded-lg" role="group" aria-label="סינון לפי תרחיש">
+                {FILTERS.map((f) => (
                   <button
                     key={f.k}
                     onClick={() => setFilter(f.k)}
-                    className={`px-3 py-1.5 rounded-lg text-sm font-bold transition ${
-                      filter === f.k
-                        ? "bg-white text-brand-dark shadow-sm"
-                        : "text-muted hover:text-ink"
+                    aria-pressed={filter === f.k}
+                    className={`min-h-[36px] px-3 rounded-md text-sm font-bold transition-colors duration-150 cursor-pointer ${
+                      filter === f.k ? "bg-white text-brand-dark shadow-card" : "text-muted hover:text-brand-dark"
                     }`}
                   >
                     {f.label}
@@ -198,19 +192,20 @@ export default function HistoryPage() {
               </div>
             </section>
 
-            {/* Cards grid */}
             {filtered && filtered.length === 0 ? (
-              <div className="bg-white rounded-2xl shadow-card p-10 text-center text-muted">
-                <div className="text-3xl mb-2">🔎</div>
-                לא נמצאו תוצאות עבור הסינון הנוכחי.
+              <div className="card p-10 text-center text-muted">
+                <p>אין תחזיות שמתאימות לסינון הזה.</p>
+                <button onClick={() => { setSearch(""); setFilter("all"); }} className="btn-secondary mt-4 text-sm">
+                  ניקוי הסינון
+                </button>
               </div>
             ) : (
               <>
-                <p className="text-sm text-muted">
-                  מציג {filtered?.length ?? 0} מתוך {predictions.length}
+                <p className="text-sm text-muted" aria-live="polite">
+                  מוצגות <span className="num">{filtered?.length ?? 0}</span> מתוך <span className="num">{predictions.length}</span>
                 </p>
-                <div className="grid sm:grid-cols-2 gap-4">
-                  {filtered?.map((p) => <PredictionCard key={p.id} p={p} />)}
+                <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {filtered?.map((p) => <PredictionCard key={p.id} p={p} scaleMax={scaleMax} />)}
                 </div>
               </>
             )}
@@ -222,48 +217,33 @@ export default function HistoryPage() {
 }
 
 function SummaryCard({
-  label, value, icon, accent, smallValue,
-}: { label: string; value: string; icon: string; accent?: boolean; smallValue?: boolean }) {
+  label, value, icon, smallValue,
+}: { label: string; value: string; icon: IconName; smallValue?: boolean }) {
   return (
-    <div
-      className={`rounded-2xl p-4 shadow-card transition hover:shadow-lg ${
-        accent ? "bg-gradient-to-br from-brand-primary to-brand-dark text-white" : "bg-white"
-      }`}
-    >
-      <div className="flex items-start justify-between gap-2">
-        <div className="min-w-0 flex-1">
-          <div
-            className={`font-black tabular-nums ${
-              smallValue ? "text-base truncate" : "text-2xl"
-            } ${accent ? "" : "text-brand-dark"}`}
-            title={smallValue ? value : undefined}
-          >
-            {value}
-          </div>
-          <div className={`text-xs mt-0.5 ${accent ? "text-white/90" : "text-muted"}`}>
-            {label}
-          </div>
-        </div>
-        <div className="text-2xl opacity-80">{icon}</div>
+    <div className="card p-4">
+      <div className="flex items-center justify-between gap-2 text-muted">
+        <div className="text-xs">{label}</div>
+        <Icon name={icon} size={16} />
+      </div>
+      <div
+        className={`font-bold text-brand-dark num mt-1 ${smallValue ? "text-base truncate" : "text-2xl"}`}
+        title={smallValue ? value : undefined}
+      >
+        {value}
       </div>
     </div>
   );
 }
 
-function PredictionCard({ p }: { p: Prediction }) {
-  const ratingScale = 5;
-  const lowPct = Math.max(0, Math.min(100, (p.prediction_low / ratingScale) * 100));
-  const highPct = Math.max(0, Math.min(100, (p.prediction_high / ratingScale) * 100));
-  const midPct = Math.max(0, Math.min(100, (p.predicted_rating / ratingScale) * 100));
-
+function PredictionCard({ p, scaleMax }: { p: Prediction; scaleMax: number }) {
   return (
-    <article className="bg-white rounded-2xl shadow-card p-5 hover:shadow-card-hover transition border border-transparent hover:border-brand-primary/20">
-      <div className="flex items-start justify-between mb-3 gap-3">
+    <article className="card p-5">
+      <div className="flex items-start justify-between gap-3">
         <div className="min-w-0 flex-1">
-          <h3 className="font-black text-brand-dark truncate" title={p.program_name ?? ""}>
+          <h3 className="font-bold text-brand-dark truncate" title={p.program_name ?? ""}>
             {p.program_name ?? "—"}
           </h3>
-          <div className="text-xs text-muted mt-0.5">
+          <div className="text-xs text-muted mt-0.5 num">
             {new Date(p.target_date).toLocaleDateString("he-IL", {
               weekday: "short",
               day: "numeric",
@@ -274,50 +254,42 @@ function PredictionCard({ p }: { p: Prediction }) {
           </div>
         </div>
         {p.scenario === "special_event" && (
-          <span className="text-[10px] px-2 py-0.5 rounded-full bg-brand-accent text-white font-bold whitespace-nowrap">
-            🚨 ביטחוני
+          <span className="inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full bg-orange-50 text-brand-accent border border-orange-200 font-bold whitespace-nowrap">
+            <Icon name="alert" size={12} />
+            אירוע ביטחוני
           </span>
         )}
       </div>
 
-      <div className="text-4xl font-black text-brand-primary tabular-nums mb-1 leading-none">
-        {p.predicted_rating.toFixed(2)}
-      </div>
-      <div className="text-xs text-muted mb-2">
-        טווח 80%:{" "}
-        <span className="tabular-nums font-bold text-ink">
-          {p.prediction_low.toFixed(2)}–{p.prediction_high.toFixed(2)}
-        </span>
-      </div>
-
-      <div className="relative h-2 bg-slate-100 rounded-full overflow-hidden mb-4">
-        <div
-          className="absolute h-full bg-gradient-to-l from-brand-accent/30 to-brand-primary/30 rounded-full"
-          style={{ insetInlineStart: `${lowPct}%`, width: `${Math.max(0, highPct - lowPct)}%` }}
-        />
-        <div
-          className="absolute top-1/2 w-1 h-3.5 bg-brand-primary rounded-full -translate-y-1/2"
-          style={{ insetInlineStart: `${midPct}%`, transform: "translate(50%, -50%)" }}
-        />
-      </div>
-
-      <div className="grid grid-cols-2 gap-2 text-xs">
-        <div className="bg-slate-50 rounded-lg p-2 text-center">
-          <div className="font-black text-ink tabular-nums">
-            {p.estimated_households.toLocaleString("he-IL")}
-          </div>
-          <div className="text-muted">בתי-אב</div>
+      <div className="flex items-baseline justify-between gap-3 mt-4">
+        <div className="text-4xl font-bold text-brand-dark num leading-none">
+          {p.predicted_rating.toFixed(2)}
         </div>
-        <div className="bg-slate-50 rounded-lg p-2 text-center">
-          <div className="font-black text-ink tabular-nums">
-            {p.estimated_viewers.toLocaleString("he-IL")}
-          </div>
-          <div className="text-muted">צופים</div>
+        <div className="text-xs text-muted">
+          טווח 80%:{" "}
+          <span className="num font-bold text-ink" dir="ltr">
+            {p.prediction_low.toFixed(2)} – {p.prediction_high.toFixed(2)}
+          </span>
         </div>
       </div>
 
-      <div className="text-[10px] text-muted mt-3 pt-3 border-t border-slate-100">
-        {new Date(p.created_at).toLocaleString("he-IL")}
+      <div className="mt-2">
+        <RangeBar low={p.prediction_low} high={p.prediction_high} point={p.predicted_rating} max={scaleMax} compact />
+      </div>
+
+      <dl className="grid grid-cols-2 gap-2 text-xs mt-3">
+        <div className="rounded-lg bg-canvas border border-line p-2">
+          <dt className="text-muted">בתי אב</dt>
+          <dd className="font-bold text-ink num">{p.estimated_households.toLocaleString("he-IL")}</dd>
+        </div>
+        <div className="rounded-lg bg-canvas border border-line p-2">
+          <dt className="text-muted">צופים</dt>
+          <dd className="font-bold text-ink num">{p.estimated_viewers.toLocaleString("he-IL")}</dd>
+        </div>
+      </dl>
+
+      <div className="text-[11px] text-muted mt-3 pt-3 border-t border-line num">
+        נוצרה ב-{new Date(p.created_at).toLocaleString("he-IL")}
       </div>
     </article>
   );

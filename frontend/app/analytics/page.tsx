@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import NavBar from "@/components/NavBar";
 import { Skeleton } from "@/components/Skeleton";
+import Icon, { type IconName } from "@/components/Icon";
 
 interface RecentRow {
   program_name: string | null;
@@ -101,9 +102,9 @@ export default function AnalyticsPage() {
 
   if (!email) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-50">
+      <div className="min-h-dvh flex items-center justify-center bg-canvas" role="status">
         <div className="text-center">
-          <div className="inline-block w-12 h-12 border-4 border-brand-primary/20 border-t-brand-primary rounded-full animate-spin" />
+          <div className="inline-block w-10 h-10 border-4 border-brand-primary/20 border-t-brand-primary rounded-full animate-spin" />
           <p className="text-muted mt-3">טוען...</p>
         </div>
       </div>
@@ -111,110 +112,89 @@ export default function AnalyticsPage() {
   }
 
   return (
-    <main className="min-h-screen bg-slate-50">
+    <main className="min-h-dvh bg-canvas">
       <NavBar email={email} title="אנליטיקה" />
 
-      <div className="max-w-6xl mx-auto px-6 py-8 space-y-6">
-        {/* My stats */}
-        <section>
-          <h2 className="text-lg font-black text-brand-dark mb-3 flex items-center gap-2">
-            <span>📈</span> השימוש שלי
-          </h2>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 py-6 space-y-6">
+        <section aria-labelledby="usage-title">
+          <h2 id="usage-title" className="text-lg font-bold text-brand-dark mb-3">השימוש שלי</h2>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
             {stats === null ? (
               Array.from({ length: 4 }).map((_, i) => (
-                <Skeleton key={i} className="h-24 rounded-2xl" />
+                <Skeleton key={i} className="h-24 rounded-xl" />
               ))
             ) : (
               <>
-                <Stat n={stats.total} label="סה״כ תחזיות" icon="📊" />
-                <Stat n={stats.thisWeek} label="השבוע" icon="📅" highlight />
-                <Stat n={stats.routine} label="שגרה" icon="🕐" />
-                <Stat n={stats.special} label="אירועים ביטחוניים" icon="🚨" />
+                <Stat n={stats.total} label="סך התחזיות" icon="history" />
+                <Stat n={stats.thisWeek} label="בשבוע האחרון" icon="calendar" />
+                <Stat n={stats.routine} label="תרחישי שגרה" icon="target" />
+                <Stat n={stats.special} label="תרחישי אירוע ביטחוני" icon="alert" />
               </>
             )}
           </div>
         </section>
 
-        {/* Activity sparkline */}
-        <section className="bg-white rounded-2xl shadow-card p-6">
-          <div className="flex items-baseline justify-between mb-4">
-            <h2 className="text-lg font-black text-brand-dark flex items-center gap-2">
-              <span>📊</span> פעילות ב-14 הימים האחרונים
-            </h2>
+        <section className="card p-5 sm:p-6" aria-labelledby="activity-title">
+          <div className="flex items-baseline justify-between gap-3 mb-4 flex-wrap">
+            <h2 id="activity-title" className="text-lg font-bold text-brand-dark">תחזיות ליום, 14 הימים האחרונים</h2>
             {avgRating != null && (
               <div className="text-sm text-muted">
-                ממוצע: <span className="font-black text-brand-primary tabular-nums">{avgRating.toFixed(2)}</span>
+                רייטינג חזוי ממוצע: <span className="font-bold text-ink num">{avgRating.toFixed(2)}</span>
               </div>
             )}
           </div>
           {activity === null ? (
-            <Skeleton className="h-32 rounded-xl" />
+            <Skeleton className="h-32 rounded-lg" />
+          ) : activity.every((d) => d.count === 0) ? (
+            <p className="text-sm text-muted text-center py-8">לא נוצרו תחזיות ב-14 הימים האחרונים.</p>
           ) : (
             <Sparkline activity={activity} />
           )}
         </section>
 
-        {/* Top programs */}
-        <section className="bg-white rounded-2xl shadow-card p-6">
-          <h2 className="text-lg font-black text-brand-dark mb-1 flex items-center gap-2">
-            <span>⭐</span> 5 התוכניות שאת חוזה הכי הרבה
-          </h2>
-          <p className="text-sm text-muted mb-4">מתוך 14 הימים האחרונים</p>
+        <section className="card p-5 sm:p-6" aria-labelledby="top-title">
+          <h2 id="top-title" className="text-lg font-bold text-brand-dark">התוכניות שנחזו הכי הרבה</h2>
+          <p className="text-sm text-muted mt-0.5 mb-4">14 הימים האחרונים</p>
           {topPrograms === null ? (
-            <Skeleton className="h-40 rounded-xl" />
+            <Skeleton className="h-40 rounded-lg" />
           ) : topPrograms.length === 0 ? (
-            <p className="text-sm text-muted text-center py-4">עדיין אין מספיק נתונים</p>
+            <p className="text-sm text-muted text-center py-4">עדיין אין מספיק נתונים.</p>
           ) : (
-            <div className="space-y-2">
+            <ol className="space-y-3">
               {topPrograms.map((p, i) => {
                 const maxCount = topPrograms[0].count;
                 const pct = (p.count / maxCount) * 100;
                 return (
-                  <div key={p.name} className="flex items-center gap-3">
-                    <div className="w-6 text-center text-sm font-black text-muted tabular-nums">
-                      {i + 1}
-                    </div>
+                  <li key={p.name} className="flex items-center gap-3">
+                    <div className="w-6 text-center text-sm font-bold text-muted num">{i + 1}</div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-baseline justify-between mb-1 gap-2">
                         <div className="text-sm font-bold text-ink truncate" title={p.name}>{p.name}</div>
-                        <div className="text-xs text-muted tabular-nums flex-shrink-0">
-                          {p.count} תחזיות
-                        </div>
+                        <div className="text-xs text-muted num flex-shrink-0">{p.count} תחזיות</div>
                       </div>
-                      <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
-                        <div
-                          className="h-full bg-gradient-to-l from-brand-primary to-brand-light rounded-full transition-all duration-700"
-                          style={{ width: `${pct}%` }}
-                        />
+                      <div className="h-2 bg-slate-200 rounded-full overflow-hidden">
+                        <div className="h-full bg-brand-primary rounded-full" style={{ width: `${pct}%` }} />
                       </div>
                     </div>
-                  </div>
+                  </li>
                 );
               })}
-            </div>
+            </ol>
           )}
         </section>
-
       </div>
     </main>
   );
 }
 
-function Stat({ n, label, highlight, icon }: { n: number; label: string; highlight?: boolean; icon: string }) {
+function Stat({ n, label, icon }: { n: number; label: string; icon: IconName }) {
   return (
-    <div className={`rounded-2xl p-4 shadow-card transition hover:shadow-lg ${
-      highlight ? "bg-gradient-to-br from-brand-accent to-orange-500 text-white" : "bg-white"
-    }`}>
-      <div className="flex items-start justify-between gap-2">
-        <div>
-          <div className={`text-3xl font-black tabular-nums ${highlight ? "" : "text-brand-primary"}`}>
-            {n.toLocaleString("he-IL")}
-          </div>
-          <div className={`text-xs mt-0.5 ${highlight ? "text-white/90" : "text-muted"}`}>{label}</div>
-        </div>
-        <div className="text-2xl opacity-80">{icon}</div>
+    <div className="card p-4">
+      <div className="flex items-center justify-between gap-2 text-muted">
+        <div className="text-xs">{label}</div>
+        <Icon name={icon} size={16} />
       </div>
+      <div className="text-3xl font-bold text-brand-dark num mt-1">{n.toLocaleString("he-IL")}</div>
     </div>
   );
 }
@@ -222,20 +202,20 @@ function Stat({ n, label, highlight, icon }: { n: number; label: string; highlig
 function Sparkline({ activity }: { activity: { date: string; label: string; count: number }[] }) {
   const max = Math.max(1, ...activity.map((d) => d.count));
   const W = 700;
-  const H = 120;
+  const H = 130;
   const padL = 30;
-  const padR = 10;
-  const padT = 10;
-  const padB = 24;
+  const padR = 12;
+  const padT = 12;
+  const padB = 26;
   const innerW = W - padL - padR;
   const innerH = H - padT - padB;
   const stepX = activity.length > 1 ? innerW / (activity.length - 1) : 0;
 
-  const points = activity.map((d, i) => {
-    const x = padL + i * stepX;
-    const y = padT + innerH - (d.count / max) * innerH;
-    return { x, y, ...d };
-  });
+  const points = activity.map((d, i) => ({
+    x: padL + i * stepX,
+    y: padT + innerH - (d.count / max) * innerH,
+    ...d,
+  }));
 
   const path = points
     .map((p, i) => `${i === 0 ? "M" : "L"} ${p.x.toFixed(1)} ${p.y.toFixed(1)}`)
@@ -245,66 +225,45 @@ function Sparkline({ activity }: { activity: { date: string; label: string; coun
   const total = activity.reduce((s, d) => s + d.count, 0);
 
   return (
-    <div className="relative">
-      <svg viewBox={`0 0 ${W} ${H}`} className="w-full h-32" preserveAspectRatio="none">
-        <defs>
-          <linearGradient id="sparkGrad" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="#1E5DB8" stopOpacity="0.35" />
-            <stop offset="100%" stopColor="#1E5DB8" stopOpacity="0" />
-          </linearGradient>
-        </defs>
-        {/* Y axis grid */}
-        {[0.25, 0.5, 0.75, 1].map((f) => (
+    <div>
+      {/* Time runs left to right, as on any chart */}
+      <svg
+        viewBox={`0 0 ${W} ${H}`}
+        className="w-full h-36"
+        role="img"
+        aria-label={`${total} תחזיות ב-14 הימים האחרונים, שיא יומי ${max}`}
+      >
+        {[0.5, 1].map((f) => (
           <line
             key={f}
             x1={padL}
             x2={W - padR}
             y1={padT + innerH * (1 - f)}
             y2={padT + innerH * (1 - f)}
-            stroke="#e2e8f0"
+            stroke="#E1E7EF"
             strokeWidth={1}
-            strokeDasharray="2 4"
           />
         ))}
-        {/* Area fill */}
-        <path d={area} fill="url(#sparkGrad)" />
-        {/* Line */}
-        <path d={path} fill="none" stroke="#1E5DB8" strokeWidth={2.5} strokeLinejoin="round" />
-        {/* Points */}
+        <line x1={padL} x2={W - padR} y1={padT + innerH} y2={padT + innerH} stroke="#CBD5E1" strokeWidth={1} />
+        <path d={area} fill="#1E5DB8" fillOpacity={0.08} />
+        <path d={path} fill="none" stroke="#1E5DB8" strokeWidth={2} strokeLinejoin="round" strokeLinecap="round" />
         {points.map((p, i) => (
           <g key={i}>
-            <circle
-              cx={p.x}
-              cy={p.y}
-              r={p.count > 0 ? 4 : 2.5}
-              fill={p.count > 0 ? "#FF6B35" : "#cbd5e1"}
-              stroke="white"
-              strokeWidth={2}
-            />
+            <circle cx={p.x} cy={p.y} r={p.count > 0 ? 4 : 2.5} fill={p.count > 0 ? "#0A2540" : "#CBD5E1"} stroke="white" strokeWidth={2} />
             <title>{`${p.label}: ${p.count} תחזיות`}</title>
           </g>
         ))}
-        {/* X labels: first / middle / last */}
         {[0, Math.floor(points.length / 2), points.length - 1].map((i) => (
-          <text
-            key={i}
-            x={points[i].x}
-            y={H - 6}
-            textAnchor="middle"
-            fontSize={11}
-            fill="#64748b"
-          >
+          <text key={i} x={points[i].x} y={H - 6} textAnchor="middle" fontSize={11} fill="#55657A">
             {points[i].label}
           </text>
         ))}
-        {/* Y max label */}
-        <text x={padL - 5} y={padT + 4} textAnchor="end" fontSize={10} fill="#94a3b8" className="tabular-nums">
-          {max}
-        </text>
+        <text x={padL - 6} y={padT + 4} textAnchor="end" fontSize={11} fill="#55657A">{max}</text>
+        <text x={padL - 6} y={padT + innerH + 4} textAnchor="end" fontSize={11} fill="#55657A">0</text>
       </svg>
-      <div className="text-xs text-muted text-center mt-1">
-        סה״כ {total.toLocaleString("he-IL")} תחזיות ב-14 ימים · שיא יומי: {max}
-      </div>
+      <p className="text-xs text-muted text-center mt-1">
+        סך הכול <span className="num">{total.toLocaleString("he-IL")}</span> תחזיות ב-14 ימים · שיא יומי: <span className="num">{max}</span>
+      </p>
     </div>
   );
 }

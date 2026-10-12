@@ -10,9 +10,12 @@ interface Props {
   title?: string;
 }
 
-const NAV: { href: string; label: string; key: string; icon: IconName; external?: boolean }[] = [
+const NAV: { href: string; label: string; key: string; icon: IconName }[] = [
   { href: "/dashboard", label: "חיזוי", key: "dashboard", icon: "target" },
-  { href: "/chat", label: "שאלה חופשית", key: "chat", icon: "message" },
+  { href: "/chat", label: "שאלה", key: "chat", icon: "message" },
+  { href: "/history", label: "היסטוריה", key: "history", icon: "history" },
+  { href: "/analytics", label: "אנליטיקה", key: "analytics", icon: "chart" },
+  { href: "/account", label: "חשבון", key: "account", icon: "user" },
 ];
 
 export default function NavBar({ email, title = "לוח חיזוי תחזיות" }: Props) {
@@ -29,50 +32,21 @@ export default function NavBar({ email, title = "לוח חיזוי תחזיות"
       <div className="bg-brand-dark text-white">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 h-14 flex items-center justify-between gap-3">
           <Link href="/dashboard" className="font-bold tracking-tight whitespace-nowrap" dir="ltr">
-            i24 <span className="hidden sm:inline font-normal text-white/70">Ratings Forecast</span>
+            i24 <span className="font-normal text-white/70">Ratings Forecast</span>
           </Link>
 
-          <nav aria-label="ניווט ראשי" className="flex items-center gap-1 text-sm">
-            {NAV.map((item) => {
-              const active = pathname === item.href ||
-                (item.href !== "/dashboard" && pathname.startsWith(item.href));
-              const cls = `inline-flex items-center gap-2 min-h-[44px] px-3 rounded-lg transition-colors duration-150 ${
-                active ? "bg-white/15 font-bold" : "text-white/80 hover:bg-white/10 hover:text-white"
-              }`;
-              const inner = (
-                <>
-                  <Icon name={item.icon} size={18} />
-                  <span>{item.label}</span>
-                </>
-              );
-              return item.external ? (
-                <a key={item.key} href={item.href} className={cls}>{inner}</a>
-              ) : (
-                <Link
-                  key={item.key}
-                  href={item.href}
-                  className={cls}
-                  aria-current={active ? "page" : undefined}
-                >
-                  {inner}
-                </Link>
-              );
-            })}
-
-            <span className="w-px h-6 bg-white/20 mx-2" aria-hidden="true" />
-
+          <div className="flex items-center gap-2 text-sm min-w-0">
             {email ? (
               <>
-                <span className="hidden md:inline text-xs text-white/70 max-w-[180px] truncate" dir="ltr" title={email}>
+                <span className="hidden md:inline text-xs text-white/70 max-w-[220px] truncate" dir="ltr" title={email}>
                   {email}
                 </span>
                 <button
                   onClick={handleSignOut}
-                  aria-label="יציאה"
                   className="inline-flex items-center gap-2 min-h-[44px] px-3 rounded-lg text-white/80 hover:bg-white/10 hover:text-white transition-colors duration-150 cursor-pointer"
                 >
                   <Icon name="logOut" size={18} />
-                  <span className="hidden sm:inline">יציאה</span>
+                  <span>יציאה</span>
                 </button>
               </>
             ) : (
@@ -83,14 +57,35 @@ export default function NavBar({ email, title = "לוח חיזוי תחזיות"
                 התחברות
               </Link>
             )}
-          </nav>
+          </div>
         </div>
       </div>
 
       <div className="bg-white border-b border-line">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 py-4">
-          <h1 className="text-xl font-bold text-brand-dark">{title}</h1>
-        </div>
+        <nav aria-label="ניווט ראשי" className="max-w-6xl mx-auto px-1 sm:px-6 flex sm:gap-1">
+          {NAV.map((item) => {
+            const active = pathname === item.href || pathname.startsWith(item.href + "/");
+            return (
+              <Link
+                key={item.key}
+                href={item.href}
+                aria-current={active ? "page" : undefined}
+                className={`flex-1 sm:flex-none flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-2 min-h-[52px] px-1 sm:px-4 text-[11px] sm:text-sm border-b-2 transition-colors duration-150 ${
+                  active
+                    ? "border-brand-primary text-brand-primary font-bold"
+                    : "border-transparent text-muted hover:text-brand-dark hover:border-slate-300"
+                }`}
+              >
+                <Icon name={item.icon} size={18} />
+                <span>{item.label}</span>
+              </Link>
+            );
+          })}
+        </nav>
+      </div>
+
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 pt-6 sm:pt-8">
+        <h1 className="text-2xl font-bold text-brand-dark">{title}</h1>
       </div>
     </header>
   );

@@ -15,7 +15,7 @@ export const metadata: Metadata = {
     default: "i24 Ratings Forecast — תחזיות רייטינג מבוססות AI",
     template: "%s · i24 Ratings Forecast",
   },
-  description: "ניבוי רייטינג של תוכניות טלוויזיה עד 6 חודשים קדימה, עם רווח-ביטחון של 80%. מודל שאומן על 10,000 שידורים אמיתיים של i24 NEWS. MAE 0.263.",
+  description: "תחזית רייטינג לשידור הבא, עם טווח ביטחון של 80% והערכת בתי אב וצופים. מודל שפותח על שידורים אמיתיים של i24 NEWS.",
   keywords: ["רייטינג", "תחזית רייטינג", "i24", "machine learning", "תכנון לוז", "tv ratings forecast", "ניבוי צופים"],
   authors: [{ name: "אורית עלמה זיו-נר" }],
   creator: "אורית עלמה זיו-נר",
@@ -23,7 +23,7 @@ export const metadata: Metadata = {
     type: "website",
     locale: "he_IL",
     title: "i24 Ratings Forecast — תחזיות רייטינג מבוססות AI",
-    description: "ניבוי רייטינג עד 6 חודשים קדימה · MAE 0.263 · 14 יום חינם",
+    description: "תחזית רייטינג עם טווח ביטחון של 80% · 14 יום חינם",
     siteName: "i24 Ratings Forecast",
   },
   twitter: {

@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { createCheckoutSession } from "@/lib/api";
 import NavBar from "@/components/NavBar";
+import Icon from "@/components/Icon";
 
 export default function AccountPage() {
   return (
@@ -87,39 +88,47 @@ function AccountInner() {
     }
   }
 
-  if (!email) return <div className="p-8 text-center text-muted">טוען...</div>;
+  if (!email) return <div className="p-8 text-center text-muted" role="status">טוען...</div>;
 
   const isPro = sub && (sub.status === "active" || sub.status === "trialing") && (sub.tier === "pro" || sub.tier === "enterprise");
 
   return (
-    <main className="min-h-screen">
+    <main className="min-h-dvh bg-canvas">
       <NavBar email={email} title="חשבון" />
 
-      <div className="max-w-3xl mx-auto px-6 py-8 space-y-6">
+      <div className="max-w-3xl mx-auto px-4 sm:px-6 py-6 space-y-6">
         {successFlag && (
-          <div className="bg-green-50 border border-green-200 rounded-2xl p-4 text-sm text-green-800">
-            🎉 <strong>תודה!</strong> השדרוג ל-Pro התקבל. אם הסטטוס עוד לא מתעדכן — רענני בעוד כמה שניות (webhook).
+          <div className="card border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-900 flex gap-2" role="status">
+            <Icon name="check" size={18} />
+            <span><strong>השדרוג ל-Pro התקבל, תודה.</strong> אם הסטטוס עוד לא התעדכן, רענני את הדף בעוד כמה שניות.</span>
           </div>
         )}
         {canceledFlag && (
-          <div className="bg-yellow-50 border border-yellow-200 rounded-2xl p-4 text-sm text-yellow-800">
-            השדרוג בוטל — לא חוייבת. תוכלי לנסות שוב מתי שתרצי.
+          <div className="card border-amber-200 bg-amber-50 p-4 text-sm text-amber-900 flex gap-2" role="status">
+            <Icon name="info" size={18} />
+            <span>השדרוג בוטל ולא חויבת. אפשר לנסות שוב מתי שתרצי.</span>
           </div>
         )}
 
-        <section className="bg-white rounded-2xl shadow-card p-6">
-          <h2 className="text-lg font-black text-brand-dark mb-4">👤 פרטי משתמש</h2>
-          <dl className="space-y-3 text-sm">
+        <section className="card p-5 sm:p-6" aria-labelledby="user-title">
+          <h2 id="user-title" className="text-lg font-bold text-brand-dark mb-4 flex items-center gap-2">
+            <Icon name="user" size={20} className="text-muted" />
+            פרטי משתמש
+          </h2>
+          <dl className="text-sm">
             <Row label="אימייל" value={<span dir="ltr">{email}</span>} />
             <Row label="שם מלא" value={profile?.full_name ?? "—"} />
-            <Row label="הצטרפת בתאריך" value={createdAt ? new Date(createdAt).toLocaleDateString("he-IL") : "—"} />
-            <Row label="תפקיד בארגון" value={profile?.role === "owner" ? "בעל הארגון" : profile?.role ?? "—"} />
+            <Row label="תאריך הצטרפות" value={createdAt ? new Date(createdAt).toLocaleDateString("he-IL") : "—"} />
+            <Row label="תפקיד בארגון" value={profile?.role === "owner" ? "בעלים" : profile?.role ?? "—"} />
           </dl>
         </section>
 
-        <section className="bg-white rounded-2xl shadow-card p-6">
-          <h2 className="text-lg font-black text-brand-dark mb-4">🏢 ארגון</h2>
-          <dl className="space-y-3 text-sm">
+        <section className="card p-5 sm:p-6" aria-labelledby="org-title">
+          <h2 id="org-title" className="text-lg font-bold text-brand-dark mb-4 flex items-center gap-2">
+            <Icon name="building" size={20} className="text-muted" />
+            ארגון
+          </h2>
+          <dl className="text-sm">
             <Row label="שם" value={org?.name ?? "—"} />
             <Row label="סוג" value={
               org?.type === "individual" ? "אישי" :
@@ -127,73 +136,70 @@ function AccountInner() {
               org?.type === "channel" ? "ערוץ" :
               org?.type === "research" ? "יחידת מחקר" : org?.type ?? "—"
             } />
-            <Row label="תחזיות שיצרתי" value={`${count ?? 0}`} />
+            <Row label="תחזיות שנוצרו" value={<span className="num">{(count ?? 0).toLocaleString("he-IL")}</span>} />
           </dl>
         </section>
 
-        {/* Subscription */}
-        {isPro ? (
-          <section className="bg-gradient-to-br from-emerald-600 to-teal-600 text-white rounded-2xl shadow-card p-6">
-            <div className="text-xs opacity-80 mb-1">תוכנית נוכחית</div>
-            <div className="text-3xl font-black mb-2">
-              ✅ {sub!.tier === "enterprise" ? "Enterprise" : "Pro"} · {sub!.status === "trialing" ? "Trial" : "פעיל"}
-            </div>
-            {sub!.current_period_end && (
-              <p className="text-sm opacity-90">
-                החיוב הבא: {new Date(sub!.current_period_end).toLocaleDateString("he-IL")}
-              </p>
-            )}
-            {sub!.trial_ends_at && sub!.status === "trialing" && (
-              <p className="text-sm opacity-90">
-                Trial מסתיים: {new Date(sub!.trial_ends_at).toLocaleDateString("he-IL")} (אז יחויב ₪990)
-              </p>
-            )}
-          </section>
-        ) : (
-          <section className="bg-gradient-to-br from-brand-dark to-brand-primary text-white rounded-2xl shadow-card p-6">
-            <div className="flex items-start justify-between flex-wrap gap-4">
-              <div>
-                <div className="text-xs opacity-80 mb-1">תוכנית נוכחית</div>
-                <div className="text-3xl font-black mb-2">Free</div>
-                <p className="text-sm opacity-90 mb-3">שדרוג ל-Pro = תחזיות ללא הגבלה + 14 יום Trial חינם</p>
-                <ul className="text-xs space-y-1 opacity-80">
-                  <li>✓ תחזיות ללא הגבלה</li>
-                  <li>✓ היסטוריה מלאה</li>
-                  <li>✓ אנליטיקה מתקדמת</li>
-                  <li>✓ Trial של 14 יום — אפשר לבטל בכל רגע</li>
-                </ul>
-              </div>
-              <button
-                onClick={handleUpgrade}
-                disabled={upgrading}
-                className="px-5 py-3 rounded-xl bg-brand-accent hover:bg-orange-600 transition font-bold whitespace-nowrap shadow-lg disabled:opacity-50"
-              >
-                {upgrading ? "מפנה ל-Stripe..." : "🚀 שדרוג ל-Pro · ₪990/חודש"}
-              </button>
-            </div>
-            {error && (
-              <div className="mt-4 bg-red-500/20 border border-red-300/30 rounded-lg p-3 text-sm">
-                {error}
-                {error.includes("Stripe לא מוגדר") && (
-                  <div className="mt-2 text-xs opacity-80">
-                    ראו STRIPE_SETUP.md לשלבי הגדרה — דורש חשבון Stripe חינמי וכמה משתני סביבה.
+        <section className={`card p-5 sm:p-6 ${isPro ? "border-emerald-300" : "border-brand-primary border-2"}`} aria-labelledby="plan-title">
+          <div className="flex items-start justify-between flex-wrap gap-4">
+            <div>
+              <h2 id="plan-title" className="text-sm font-medium text-muted">התוכנית הנוכחית</h2>
+              {isPro ? (
+                <>
+                  <div className="text-2xl font-bold text-brand-dark mt-1 flex items-center gap-2 flex-wrap">
+                    {sub!.tier === "enterprise" ? "Enterprise" : "Pro"}
+                    <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-800 font-bold">
+                      <Icon name="check" size={12} />
+                      {sub!.status === "trialing" ? "תקופת ניסיון" : "פעיל"}
+                    </span>
                   </div>
-                )}
-              </div>
+                  {sub!.current_period_end && (
+                    <p className="text-sm text-muted mt-2">
+                      החיוב הבא: <span className="num text-ink">{new Date(sub!.current_period_end).toLocaleDateString("he-IL")}</span>
+                    </p>
+                  )}
+                  {sub!.trial_ends_at && sub!.status === "trialing" && (
+                    <p className="text-sm text-muted mt-1">
+                      תקופת הניסיון מסתיימת ב-<span className="num text-ink">{new Date(sub!.trial_ends_at).toLocaleDateString("he-IL")}</span>, ואז יחויבו ₪990.
+                    </p>
+                  )}
+                </>
+              ) : (
+                <>
+                  <div className="text-2xl font-bold text-brand-dark mt-1">Free</div>
+                  <p className="text-sm text-muted mt-2">שדרוג ל-Pro כולל 14 יום ניסיון חינם, ואפשר לבטל בכל רגע.</p>
+                  <ul className="text-sm space-y-1.5 mt-3">
+                    {["תחזיות ללא הגבלה", "היסטוריה מלאה", "אנליטיקה מתקדמת"].map((f) => (
+                      <li key={f} className="flex items-center gap-2">
+                        <Icon name="check" size={16} className="text-brand-primary" />
+                        {f}
+                      </li>
+                    ))}
+                  </ul>
+                </>
+              )}
+            </div>
+            {!isPro && (
+              <button onClick={handleUpgrade} disabled={upgrading} className="btn-primary whitespace-nowrap">
+                {upgrading ? "מעבר ל-Stripe..." : "שדרוג ל-Pro · ₪990 לחודש"}
+              </button>
             )}
-          </section>
-        )}
+          </div>
+          {error && (
+            <div className="mt-4 rounded-lg bg-red-50 border border-red-200 p-3 text-sm text-red-800 flex gap-2" role="alert">
+              <Icon name="alert" size={18} />
+              <span className="break-words">{error}</span>
+            </div>
+          )}
+        </section>
 
-        <section className="bg-white rounded-2xl shadow-card p-6 border border-red-100">
-          <h2 className="text-lg font-black text-red-700 mb-2">⚠️ פעולות מסוכנות</h2>
-          <p className="text-sm text-muted mb-3">
-            ביטול חשבון מוחק את כל ההיסטוריה שלך — אין דרך לשחזר.
+        <section className="card p-5 sm:p-6" aria-labelledby="delete-title">
+          <h2 id="delete-title" className="text-lg font-bold text-brand-dark">מחיקת חשבון</h2>
+          <p className="text-sm text-muted mt-1">
+            מחיקת החשבון מוחקת את כל היסטוריית התחזיות, ואי אפשר לשחזר אותה. האפשרות למחוק מכאן עדיין לא זמינה.
           </p>
-          <button
-            className="px-4 py-2 rounded-lg bg-red-50 text-red-700 hover:bg-red-100 transition text-sm font-bold"
-            onClick={() => alert("מחיקת חשבון תתווסף בעתיד — נדרש אישור משתמש")}
-          >
-            מחיקת חשבון
+          <button className="btn mt-4 text-sm border border-red-200 text-red-700 bg-white" disabled>
+            מחיקת חשבון (בקרוב)
           </button>
         </section>
       </div>
@@ -203,9 +209,9 @@ function AccountInner() {
 
 function Row({ label, value }: { label: string; value: React.ReactNode }) {
   return (
-    <div className="flex justify-between border-b border-slate-100 pb-2">
+    <div className="flex justify-between gap-4 py-2.5 border-b border-line last:border-b-0">
       <dt className="text-muted">{label}</dt>
-      <dd className="font-bold text-ink">{value}</dd>
+      <dd className="font-medium text-ink text-left min-w-0 break-words">{value}</dd>
     </div>
   );
 }
