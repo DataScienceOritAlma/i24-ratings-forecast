@@ -1,15 +1,21 @@
-fastapi==0.118.0
+fastapi==0.143.0
 uvicorn[standard]==0.32.1
 joblib==1.4.2
 scikit-learn==1.5.2
 pandas==2.2.3
 numpy>=1.26,<2.3
 psycopg[binary]==3.2.3
-python-dotenv==1.0.1
+python-dotenv==1.2.4
 openpyxl==3.1.5
 pydantic==2.10.3
 stripe==11.4.1
-requests==2.32.3
+requests==2.34.2
 slowapi==0.1.9
-pytest==8.3.4
+pytest==9.1.1
 httpx==0.28.1
+
+# Pinned because the resolver would otherwise pick a version with a known
+# advisory. Each is pulled in indirectly, not imported here directly.
+starlette>=1.3.1
+urllib3>=2.8.0
+anyio>=4.14.2
