@@ -10,7 +10,7 @@ const API = "https://i24-ratings-api.onrender.com";
 
 // Build marker — bumping the number forces a new chunk hash so browsers cannot
 // keep serving a stale bundle from cache. Visible in DevTools console.
-const BUILD = "v90";
+const BUILD = "v101";
 if (typeof window !== "undefined") {
   // eslint-disable-next-line no-console
   console.log(`[i24 build ${BUILD}] API = ${API}`);
@@ -37,11 +37,11 @@ export interface PredictRequest {
 }
 
 export interface PredictResponse {
-  predicted_rating: number;            // adjusted rating (panel-corrected)
-  prediction_low: number;              // 80% CI lower bound (adjusted)
-  prediction_high: number;             // 80% CI upper bound (adjusted)
-  predicted_rating_raw?: number;       // derived raw rating estimate
-  reception_pct_used?: number;         // estimated panel reception
+  predicted_rating: number;            // raw rating, as i24 reports it (שלב 101)
+  prediction_low: number;              // 80% interval lower bound
+  prediction_high: number;             // 80% interval upper bound
+  predicted_rating_raw?: number | null;   // unused since שלב 101
+  reception_pct_used?: number | null;     // unused since שלב 101
   estimated_households: number;
   estimated_viewers: number;
   model: string;

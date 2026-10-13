@@ -13,12 +13,13 @@
        ↓
 3. אני מריץ את הסקיל process-i24-data:
    - מוסיף 19 עמודות מהונדסות
-   - ממזג עם הדאטה הקיים (dedup אוטומטי)
-   - מעלה ל-Supabase
+   - ממזג עם הדאטה הקיים (dedup אוטומטי), או מחליף אותו אם הקובץ מכיל את כל הטווח
+   - מעלה ל-Supabase (UPSERT)
+   - מאמן מחדש את מודל קבינט שישי (`train_and_save_kabinet_model.py`)
        ↓
 4. ה-cron של GitHub Actions ירוץ ב-1 לחודש הבא — או נריץ ידנית
        ↓
-5. המודל מתאמן מחדש על כל הדאטה (כולל החודש החדש)
+5. שני המודלים מתאמנים מחדש על כל הדאטה: הכללי, ומודל קבינט שישי שבייצור
        ↓
 6. Render רואה את ה-commit החדש → בונה מחדש → המודל החי מתעדכן
 ```
@@ -40,9 +41,10 @@
 |---|---|
 | **`process_raw_data.py`** | מקבל xlsx/csv גולמי מ-i24, מוסיף 19 עמודות מהונדסות, ממזג עם הדאטה הקיים |
 | **`.claude/skills/process-i24-data/SKILL.md`** | הוראות איך אני (Claude) מפעיל את הסקריפט עבורך |
-| **`retrain_from_supabase.py`** | מתאמן על דאטה מ-Supabase, שומר model_saved.joblib, מעדכן retrain_log.md |
-| **`.github/workflows/retrain.yml`** | ה-cron החודשי + workflow_dispatch לטריגר ידני |
-| **`retrain_log.md`** | היסטוריית כל ריצות הריטריינ (נוצר אוטומטית) |
+| **`retrain_from_supabase.py`** | מאמן את המודל הכללי מ-Supabase, שומר model_saved.joblib, מעדכן retrain_log.md |
+| **`train_and_save_kabinet_model.py`** | מאמן את מודל קבינט שישי (**זה שבייצור**), שומר model_kabinet_shishi.joblib, מעדכן retrain_log_kabinet.md |
+| **`.github/workflows/retrain.yml`** | ה-cron החודשי + workflow_dispatch לטריגר ידני. מריץ את שני האימונים |
+| **`retrain_log.md`** / **`retrain_log_kabinet.md`** | היסטוריית הריצות של כל מודל (נוצרים אוטומטית) |
 | **`migrate_to_supabase.py`** | מעלה את הדאטה המעובד ל-Supabase (UPSERT — בטוח לחזור) |
 
 ---
@@ -71,14 +73,16 @@
 כאן 11 · קשת 12 · רשת 13 · עכשיו 14
 ```
 
-CSV עם שורת כותרת מעל (פורמט i24 מקורי) — נתמך אוטומטית.
+CSV או XLSX עם שורת כותרת מעל (פורמט i24 מקורי) — נתמך אוטומטית.
+
+קובץ שמכיל את **כל הטווח** מההתחלה (ולא רק את החודש החדש) מעבדים עם `--no-merge`, כדי ששורות ש-i24 תיקנה או שינתה להן שם לא יישארו בכפילות.
 
 ---
 
 ## מה לעקוב אחריו אחרי כל ריצה
 
 1. **GitHub Actions tab** — הריצה הצליחה?
-2. **`retrain_log.md`** — שורה חדשה עם תאריך, מספר שורות, ו-MAE
+2. **`retrain_log.md`** ו-**`retrain_log_kabinet.md`** — שורה חדשה בכל אחד. אם "שידור אחרון" ב-`retrain_log_kabinet.md` לא מתקדם מחודש לחודש, הדאטה החדש לא הגיע ל-Supabase
 3. **Render dashboard** — הדפלוי האוטומטי עבר?
 
 אם **MAE מתחיל לטפס** באופן עקבי לאורך כמה ריצות — זה סימן ל-drift אמיתי בנתונים. כדאי לחקור איזה תוכניות התרחקו מהמודל.

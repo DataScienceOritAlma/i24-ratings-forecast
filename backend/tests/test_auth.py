@@ -72,11 +72,10 @@ def test_predict_passes_with_valid_token(client, predict_body):
     assert "predicted_rating" in body
     assert "prediction_low" in body
     assert "prediction_high" in body
-    # מקור אי-הוודאות: מאז שלב 98 קבינט שישי רץ על מודל ייעודי, והרווח נגזר
-    # מ-y_std שלו. הבדיקה הישנה עוד ציפתה לשמות מלפני כן, ולכן נכשלה אף
-    # שהקוד תקין. נבדק כאן מה שבאמת חייב להתקיים: השדה מלא, הוא אחד
+    # מקור אי-הוודאות: מאז שלב 101 הרווח נגזר מטעויות ה-walk-forward של המודל
+    # הייעודי לקבינט שישי. נבדק כאן מה שחייב להתקיים: השדה מלא, הוא אחד
     # מהמקורות המוכרים, והוא זהה למה שמדווח ב-metadata.
-    known_sources = ("y_std_kabinet", "conformal_quantile", "slot_std", "slot_std_fallback")
+    known_sources = ("walk_forward_abs_error",)
     assert body["uncertainty_source"] in known_sources, body["uncertainty_source"]
     assert body["metadata"]["interval_method"] == body["uncertainty_source"]
     # הרווח חייב להקיף את התחזית

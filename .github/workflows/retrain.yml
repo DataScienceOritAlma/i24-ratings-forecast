@@ -42,11 +42,20 @@ jobs:
         run: |
           python retrain_from_supabase.py
 
+      # The model that serves /predict. Until שלב 101 only the general model
+      # above was retrained, so production kept answering from April's data.
+      - name: Retrain Kabinet Shishi model from Supabase
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          PYTHONUTF8: '1'
+        run: |
+          python train_and_save_kabinet_model.py
+
       - name: Commit + push new model
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add model_saved.joblib retrain_log.md
+          git add model_saved.joblib retrain_log.md model_kabinet_shishi.joblib retrain_log_kabinet.md
           if git diff --staged --quiet; then
             echo "::notice::No model changes — nothing to commit"
             exit 0

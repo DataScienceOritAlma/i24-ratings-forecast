@@ -12,12 +12,15 @@ migrate_to_supabase.py
 
 מה הסקריפט עושה:
     1. טוען את ה-xlsx
-    2. מעלה 179 תוכניות → `programs`
-    3. מעלה 10K שידורים → `broadcasts` עם FK ל-programs
+    2. מעלה את התוכניות → `programs`
+    3. מעלה את השידורים → `broadcasts` עם FK ל-programs
     4. מאמת ספירות
 
-אידמפוטנטי: אם הטבלאות לא ריקות — הסקריפט יזרוק אזהרה ויעצור.
-לאיפוס: TRUNCATE broadcasts, programs CASCADE; ב-Supabase SQL Editor.
+אידמפוטנטי (UPSERT): שורה קיימת מתעדכנת, שורה חדשה נוספת, ושום דבר לא נמחק.
+אפשר להריץ שוב אחרי כל קובץ חודשי.
+
+שידורים שמתחילים אחרי חצות (24:00 ומעלה) לא עולים: בטבלה שעת ההתחלה היא
+`time`, ולכן 24:23 היה מתנגש עם 00:23 של אותו תאריך. כך זה היה מההתחלה.
 """
 import io
 import os
@@ -61,6 +64,11 @@ def parse_time(v):
     return dt.time(h, int(m[2]), int(m[3]))
 
 
+def starts_after_midnight(v) -> bool:
+    m = re.match(r'(\d+):', str(v).strip())
+    return bool(m) and int(m[1]) >= 24
+
+
 def parse_duration_min(v):
     """'00:11:29' → 11.48 דקות"""
     if pd.isna(v):
@@ -92,13 +100,12 @@ print(f"→ מתחבר ל-Supabase Postgres...")
 conn = psycopg.connect(DB_URL)
 print(f"✓ מחובר")
 
-# בדיקה: האם כבר יש דאטא?
 with conn.cursor() as cur:
     cur.execute("select count(*) from public.programs")
-    n_existing = cur.fetchone()[0]
-if n_existing > 0:
-    conn.close()
-    sys.exit(f"⚠️  כבר יש {n_existing} programs. לאיפוס: TRUNCATE broadcasts, programs CASCADE;")
+    n_p_before = cur.fetchone()[0]
+    cur.execute("select count(*) from public.broadcasts")
+    n_b_before = cur.fetchone()[0]
+print(f"   לפני: {n_p_before} programs, {n_b_before:,} broadcasts")
 
 print(f"→ טוען {SRC.name}...")
 df = pd.read_excel(SRC)
@@ -160,11 +167,14 @@ for _, r in prog_df.iterrows():
 with conn.cursor() as cur:
     cur.executemany(
         "insert into public.programs (name, source_name, first_aired, last_aired, n_broadcasts) "
-        "values (%s, %s, %s, %s, %s)",
+        "values (%s, %s, %s, %s, %s) "
+        "on conflict (name) do update set source_name = excluded.source_name, "
+        "first_aired = excluded.first_aired, last_aired = excluded.last_aired, "
+        "n_broadcasts = excluded.n_broadcasts, updated_at = now()",
         records,
     )
 conn.commit()
-print(f"   ✓ {len(records)} programs inserted")
+print(f"   ✓ {len(records)} programs upserted")
 
 
 # ---------- lookup IDs ----------
@@ -178,8 +188,12 @@ print("\n2️⃣  Broadcasts...")
 
 records = []
 dropped = 0
+late = 0
 seen = set()  # למניעת כפילויות UNIQUE
 for _, r in df.iterrows():
+    if starts_after_midnight(r[C_START]):
+        late += 1
+        continue
     prog_id = id_map.get(r[C_NAME])
     d = parse_date(r[C_DATE])
     t = parse_time(r[C_START])
@@ -217,6 +231,8 @@ for _, r in df.iterrows():
         float(rec) if pd.notna(rec) else None,
     ))
 
+if late:
+    print(f"   {late:,} שידורים שמתחילים אחרי חצות לא עולים (ראי docstring)")
 if dropped:
     print(f"   ⚠️  הוסרו {dropped} שורות (חסרות / כפילויות)")
 
@@ -227,9 +243,16 @@ with conn.cursor() as cur:
             day_of_week, daypart, status, event, is_rerun,
             actual_rating, share, viewers_4plus, hut_proxy, reception_pct
         ) values (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+        on conflict (broadcast_date, start_time, program_id) do update set
+            end_time = excluded.end_time, duration_min = excluded.duration_min,
+            day_of_week = excluded.day_of_week, daypart = excluded.daypart,
+            status = excluded.status, event = excluded.event, is_rerun = excluded.is_rerun,
+            actual_rating = excluded.actual_rating, share = excluded.share,
+            viewers_4plus = excluded.viewers_4plus, hut_proxy = excluded.hut_proxy,
+            reception_pct = excluded.reception_pct
     """, records)
 conn.commit()
-print(f"   ✓ {len(records):,} broadcasts inserted")
+print(f"   ✓ {len(records):,} broadcasts upserted")
 
 
 # ---------- 3. verify ----------
@@ -245,10 +268,10 @@ with conn.cursor() as cur:
     )
     d_min, d_max, avg = cur.fetchone()
 
-print(f"   programs:   {n_p}")
-print(f"   broadcasts: {n_b:,}")
+print(f"   programs:   {n_p}  (+{n_p - n_p_before})")
+print(f"   broadcasts: {n_b:,}  (+{n_b - n_b_before:,})")
 print(f"   date range: {d_min} → {d_max}")
-print(f"   avg rating: {avg}   (צפוי ~0.441)")
+print(f"   avg rating: {avg}")
 
 conn.close()
 print("\n✅ Migration complete! בדקי ב-Supabase → Table Editor.")

@@ -23,6 +23,7 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import datetime as dt
 import os
 import sys
 from pathlib import Path
@@ -61,6 +62,41 @@ def reception_pct(date: pd.Timestamp) -> float:
     return min(value, RECEPTION_CAP)
 
 
+TIME_COLS = ["שעת התחלה", "שעת סיום", "משך תוכנית", "משך צפייה"]
+_EXCEL_DAY_ZERO = dt.datetime(1899, 12, 31)
+
+
+def canon_time(v):
+    """Any Excel time cell → 'HH:MM:SS', where hours may pass 24 (the broadcast
+    day runs until ~26:00). Excel hands the same kind of value back as a time,
+    a timedelta ('1 day, 0:23:36') or a 1900-01-01 datetime depending on how the
+    cell was formatted; without one spelling, dedup keys and hour features break."""
+    if v is None or (isinstance(v, float) and pd.isna(v)):
+        return None
+    if isinstance(v, dt.datetime):
+        secs = (v - _EXCEL_DAY_ZERO).total_seconds() if v.year <= 1900 \
+            else v.hour * 3600 + v.minute * 60 + v.second
+    elif isinstance(v, dt.time):
+        secs = v.hour * 3600 + v.minute * 60 + v.second
+    elif isinstance(v, dt.timedelta):
+        secs = v.total_seconds()
+    else:
+        td = pd.to_timedelta(str(v).strip(), errors="coerce")
+        if pd.isna(td):
+            return None
+        secs = td.total_seconds()
+    secs = int(round(secs))
+    return f"{secs // 3600:02d}:{secs % 3600 // 60:02d}:{secs % 60:02d}"
+
+
+def normalize_times(df: pd.DataFrame) -> pd.DataFrame:
+    df = df.copy()
+    for c in TIME_COLS:
+        if c in df.columns:
+            df[c] = df[c].map(canon_time)
+    return df
+
+
 def td_to_minutes(s: pd.Series) -> pd.Series:
     return pd.to_timedelta(s.astype(str), errors="coerce").dt.total_seconds() / 60.0
 
@@ -89,8 +125,8 @@ def status_from_name(name: str) -> str:
 
 # ---------- input loading ----------------------------------------------------
 def load_raw(path: Path) -> pd.DataFrame:
-    """Read CSV or XLSX. CSV may have a banner row above the headers
-    (the original i24 format does). XLSX is assumed to have headers on row 1."""
+    """Read CSV or XLSX. Either may have a banner row above the headers
+    (the original i24 format does); XLSX is read from its first sheet."""
     if path.suffix.lower() == ".csv":
         # First, peek at row 1 — if it doesn't include "שם תוכנית", skip it
         first = pd.read_csv(path, nrows=1, header=None)
@@ -99,9 +135,12 @@ def load_raw(path: Path) -> pd.DataFrame:
         else:
             df = pd.read_csv(path)
     elif path.suffix.lower() in (".xlsx", ".xls"):
-        df = pd.read_excel(path)
+        first = pd.read_excel(path, nrows=1, header=None)
+        banner = "שם תוכנית" not in first.iloc[0].astype(str).str.strip().values
+        df = pd.read_excel(path, header=1 if banner else 0)
     else:
         raise ValueError(f"Unsupported file extension: {path.suffix}")
+    df.columns = [str(c).strip() for c in df.columns]
 
     # Sanity check
     missing = [c for c in NATIVE_15_COLS if c not in df.columns]
@@ -115,7 +154,7 @@ def load_raw(path: Path) -> pd.DataFrame:
 
 # ---------- feature engineering ----------------------------------------------
 def add_features(df: pd.DataFrame) -> pd.DataFrame:
-    df = df.copy()
+    df = normalize_times(df)
     df["תאריך שידור"] = pd.to_datetime(df["תאריך שידור"], errors="coerce")
     df = df.dropna(subset=["תאריך שידור"]).reset_index(drop=True)
 
@@ -204,7 +243,7 @@ def merge_with_existing(new_df: pd.DataFrame) -> pd.DataFrame:
         return new_df
 
     print(f"[process] Loading existing {PROCESSED_XLSX.name}...")
-    existing = pd.read_excel(PROCESSED_XLSX, sheet_name="נתונים מעובדים")
+    existing = normalize_times(pd.read_excel(PROCESSED_XLSX, sheet_name="נתונים מעובדים"))
     existing["תאריך שידור"] = pd.to_datetime(existing["תאריך שידור"])
 
     combined = pd.concat([existing, new_df], ignore_index=True)

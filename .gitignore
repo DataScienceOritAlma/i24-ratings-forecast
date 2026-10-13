@@ -41,6 +41,10 @@ catboost_info/
 # Claude Code working dir
 .claude/
 
+# Monthly raw exports from i24 — only the README is tracked
+נתונים_חודשיים/*
+!נתונים_חודשיים/README.md
+
 # IDE / OS
 "CLAUDE - Copy.md"
 "DEPLOY - Copy.md"

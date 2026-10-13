@@ -19,7 +19,7 @@ const FEATURES: { icon: IconName; t: string; d: string }[] = [
   { icon: "history", t: "היסטוריית תחזיות", d: "כל תחזית נשמרת עם הטווח והתרחיש שלה, וזמינה לחיפוש ולסינון." },
   { icon: "chart", t: "תרחישים", d: "השוו בין שבוע שגרה לאירוע ביטחוני, וראו את הקפיצה הצפויה ברייטינג בזמן הסלמה." },
   { icon: "shield", t: "הפרדת נתונים", d: "Row-Level Security לכל ארגון. הנתונים שלכם נראים רק לכם." },
-  { icon: "flag", t: "מותאם לישראל", d: "אירועים ביטחוניים ושינויים בפאנל המדידה נכללים בחיזוי." },
+  { icon: "flag", t: "מותאם לישראל", d: "אירועים ביטחוניים נכללים בחיזוי, וערבי חג מסומנים באזהרה." },
 ];
 
 const STEPS = [
@@ -85,7 +85,7 @@ export default function LandingPage() {
           {/* Product preview: the forecast card, as it appears in the app */}
           <div className="card text-ink p-6 max-w-md w-full mx-auto lg:mx-0 lg:justify-self-end" aria-hidden="true">
             <div className="flex items-start justify-between gap-3">
-              <span className="text-sm font-medium text-muted">תחזית רייטינג מותאם</span>
+              <span className="text-sm font-medium text-muted">תחזית רייטינג</span>
               <span className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded-full font-bold bg-emerald-50 text-emerald-800">
                 <Icon name="trendingUp" size={14} /> <span className="num">0.31</span> מעל הממוצע
               </span>

@@ -25,7 +25,7 @@
 **אבולוציה עתידית:** מתוכנית-בודדת → רצועות (פריים) → חישובי trade-off פרסומות.
 
 ### דאטה ומידול
-- נתונים: 10,039 שורות × 15 עמודות, טווח 2025-05-25 → 2026-04-18, 179 תוכניות
+- נתונים: 15,171 שורות × 15 עמודות, טווח 2025-05-25 → 2026-10-11 (עודכן בשלב 101; עד אז 10,039 שורות עד 2026-04-18)
 - שפה: Python, pandas, scikit-learn, openpyxl
 - סביבה: Windows 10, PowerShell, Python 3
 
@@ -52,8 +52,10 @@
 - **`regen_cases_json.py`** (שלב 97) — משחזר את `_cases_data.json` מ-`ניתוח_שגיאות_20_מקרים.xlsx`. נחוץ כי הקובץ נמחק אחרי build קודם, ו-`build_mentor_prep_docx.js` תלוי בו.
 - **`kabinet_shishi_model.py`** (שלב 98, 2026-07-11) — פישוט טכני: מודל ייעודי לתוכנית **קבינט שישי** בלבד. מסנן ל-50 שידורים חיים (מתוך 232 שכוללים גם 160 חזרות ו-22 לקטים), בונה פיצ'רי-lag/EMA/rolling + אירועים ביטחוניים (`days_since_event_start`, `event_severity`, `in_event`, `broadcasts_in_current_event` מ-`אירועים_מדויקים.csv`), פיצול כרונולוגי 80/20 (38/10), משווה 3 baselines + Ridge + HistGB. **תוצאות:** HistGB מכוונן-קטן MAE=0.717 (R²=0.19); ב-MAE/mean = 14.6% לעומת 22.4% במודל הכללי — יחסית טוב יותר. **פיצ'רי אירוע לא עזרו:** HistGB התעלם (min_samples_leaf=5 חוסם splits עם 4 שורות "in event" באימון); Ridge החמיר ל-0.851→1.085 (overshoot ל-8.20 מול אמת 6.18 במרץ 2026). התקרה = **חוסר-דאטה של המשטר החדש** (מבצע שאגת הארי התחיל 2026-02-28, train מסתיים 2026-02-06 → אפס דוגמאות אימון של קבינט-שישי-בתוך-אירוע-רמה-9), לא בחירת מודל.
 - **`compare_general_vs_kabinet.py`** (שלב 98, 2026-07-11) — משווה את המודל הכללי (`model_saved.joblib`, MAE=0.300 כללי) מול המודל הייעודי על אותן 10 שורות test של קבינט שישי. **תוצאה:** ייעודי 0.717 מול כללי 1.179 — **המודל הייעודי מנצח ב-39.2%** ו-8/10 שידורים. הכללי כשל שיטתי בקצוות (2026-03-06: חזה 3.49 מול אמת 5.78). בסיס להחלטה להחליף בייצור.
-- **`train_and_save_kabinet_model.py`** (שלב 98, 2026-07-11) — גרסת-ייצור של המודל: אימון על **כל 48 השורות** (בלי train/test split), שמירה ל-`model_kabinet_shishi.joblib`. Bundle: pipeline (HistGB), 16 feature_cols, sec_levels (7 רמות תג_ביטחוני שנצפו), start_date=2025-05-30, y_std=1.061 (לרווחי-ביטחון), recent_history (6 שידורים אחרונים). In-sample MAE=0.147; ה-`expected_test_mae=0.717` מגיע מהניסוי עם ה-split.
-- **`model_kabinet_shishi.joblib`** (16KB) — המודל בייצור מ-2026-07-11. **החליף את `model_saved.joblib`** ב-backend/main.py. נטען עם `sec_levels`, `start_date`, `y_std` כמטא-דאטה.
+- **`kabinet_features.py`** (שלב 101, 2026-10-13) — הגדרות משותפות לאימון ולהגשה של מודל קבינט שישי: `TARGET='רייטינג'` (גולמי), `FEATURES` (lag_1, ema_4, rolling_mean_4, is_security_day), `select_live_fridays()`, `lag_features()`, `active_events()`, ו-`HOLIDAY_FRIDAYS` (חגים וערבי חג שנופלים על שישי; **להאריך פעם בשנה**). גם סקריפט האימון וגם `backend/main.py` מייבאים מכאן, כדי שלא ייווצר פער בין אימון להגשה.
+- **`train_and_save_kabinet_model.py`** (שלב 98; נכתב מחדש בשלב 101) — מאמן את מודל הייצור. קורא מ-Supabase אם `DATABASE_URL` מוגדר, אחרת מ-xlsx (`--xlsx` כופה). מריץ walk-forward (אימון מחדש לפני כל שידור, החל מהשידור ה-31), ומהטעויות גוזר את `expected_test_mae` ואת `interval_half_width` (אחוזון 80 של הטעות המוחלטת, בנפרד לשגרה ולאירוע ביטחוני). אחר כך מאמן על הכול, שומר, ומוסיף שורה ל-`retrain_log_kabinet.md`. תוצאה ב-2026-10-13: MAE שגרה 0.499, טווח ±0.86 / ±1.66.
+- **`model_kabinet_shishi.joblib`** — המודל בייצור. מ-שלב 101 חוזה **רייטינג גולמי** (`target_kind='raw'`, `model_name='HistGradientBoosting-KabinetShishi-raw'`), ומתאמן מחדש ב-cron החודשי.
+- ⚠️ `kabinet_shishi_model.py` ו-`compare_general_vs_kabinet.py` הם ניסוי שלב 98 (יעד מותאם, 16 פיצ'רים) ואינם משקפים את מודל הייצור הנוכחי.
 
 ### תוצאות
 - `predictions.xlsx` — חיזויי V1 (4 מודלים)
@@ -92,7 +94,7 @@
 - הרצה: `cd frontend && npm install && npm run dev` → http://localhost:3000
 
 ### Backend (FastAPI ML Service — שלב 2, 2026-05-21)
-- `backend/main.py` — FastAPI app: `/health`, `/predict`, `/docs`. **שלב 98 (2026-07-11):** טוען `model_kabinet_shishi.joblib` (במקום `model_saved.joblib`); quantile+bias יצאו זמנית (לא תואמים לפיצ'רים החדשים); היסטוריה מ-Supabase נשארה אבל מסוננת פעם אחת ל-`KABINET_HISTORY` (50 שידורי-חי) לחישוב lag_1/2/EMA4/rolling4. `אירועים_מדויקים.csv` נטען ב-startup. פונקציה חדשה `_derive_security_tag(target_date, scenario)` ממפה תאריך + scenario ל-תג_ביטחוני שתואם לרמות באימון (`routine`→שגרה; `special_event`→לפי CSV, או תג הכי חמור אם אין אירוע פעיל = סימולציית תרחיש-הסלמה). `_compute_kabinet_features` בונה 16 פיצ'רים. Interval: `pred ± 1.28 * y_std` (`interval_method='y_std_kabinet'`). Metadata חדשה מחזירה את `lag_1`, `lag_2`, `ema_4`, `sec_tag_used`. dev-toggles: `REQUIRE_AUTH=false` עוקף JWT verify, `LLM_EXPLAIN_PREDICTIONS=false` מדלג על Groq. **שלב 92:** `_unhandled_exception_handler` גלובלי (CORS headers ל-uncaught exceptions). **שלב 94:** אסור להוסיף `from __future__ import annotations` (שובר את Pydantic 2.10 model_rebuild).
+- `backend/main.py` — FastAPI app: `/health`, `/predict`, `/docs`. **שלב 98 (2026-07-11):** טוען `model_kabinet_shishi.joblib` (במקום `model_saved.joblib`); quantile+bias יצאו זמנית (לא תואמים לפיצ'רים החדשים); היסטוריה מ-Supabase נשארה אבל מסוננת פעם אחת ל-`KABINET_HISTORY` (50 שידורי-חי) לחישוב lag_1/2/EMA4/rolling4. `אירועים_מדויקים.csv` נטען ב-startup. פונקציה חדשה `_derive_security_tag(target_date, scenario)` ממפה תאריך + scenario ל-תג_ביטחוני שתואם לרמות באימון (`routine`→שגרה; `special_event`→לפי CSV, או תג הכי חמור אם אין אירוע פעיל = סימולציית תרחיש-הסלמה). `_compute_kabinet_features` בונה 16 פיצ'רים. Interval: `pred ± 1.28 * y_std` (`interval_method='y_std_kabinet'`). Metadata חדשה מחזירה את `lag_1`, `lag_2`, `ema_4`, `sec_tag_used`. dev-toggles: `REQUIRE_AUTH=false` עוקף JWT verify, `LLM_EXPLAIN_PREDICTIONS=false` מדלג על Groq. **שלב 101 (2026-10-13) מחליף את תיאור שלב 98 שלפני כן:** `/predict` מחזיר רייטינג גולמי; מכפיל המגמה לתאריכים רחוקים הוסר; תאריך שאינו יום שישי מחזיר 400 (ו-`/ask` מעגל לשישי הקרוב); `metadata.holiday_warning` לחגים ולערבי חג; הטווח הוא `pred ± interval_half_width` מהמודל (`interval_method='walk_forward_abs_error'`); "אירוע ביטחוני" נדלק רק כשיש אירוע פעיל בתאריך לפי `אירועים_מדויקים.csv`. `predicted_rating_raw` ו-`reception_pct_used` נשארו בסכמה כ-None. **שלב 92:** `_unhandled_exception_handler` גלובלי (CORS headers ל-uncaught exceptions). **שלב 94:** אסור להוסיף `from __future__ import annotations` (שובר את Pydantic 2.10 model_rebuild).
 - `backend/prediction_logic.py` — חישוב lag features, slot uncertainty, trend (פורט מ-utils/predict.py בלי תלות ב-Streamlit)
 - `backend/requirements.txt` — FastAPI · uvicorn · sklearn · pandas · psycopg · dotenv
 - `backend/render.yaml` — תצורת פריסה אוטומטית ל-Render.com
@@ -104,7 +106,7 @@
 - Stripe מותנה ב-3 env vars: `STRIPE_SECRET_KEY` · `STRIPE_PRICE_PRO_MONTHLY` · `STRIPE_WEBHOOK_SECRET`. בלעדיהם — 503 ברור (לא קורס)
 - `backend/README.md` — הרצה מקומית + מדריך פריסה
 - הרצה מקומית: `cd backend && py -3 -m uvicorn main:app --reload`
-- **`migrate_to_supabase.py`** — מעלה תוכניות+שידורים מ-`תוכניות_מעובד.xlsx` ל-Postgres דרך psycopg ישיר. Type-aware: datetime.time, uuid.UUID, NaN→None. דורש `.env` עם DATABASE_URL
+- **`migrate_to_supabase.py`** — מעלה תוכניות+שידורים מ-`תוכניות_מעובד.xlsx` ל-Postgres דרך psycopg ישיר. **UPSERT מאז שלב 101** (בטוח להריץ שוב; לא מוחק). שידורים שמתחילים ב-24:00 ומעלה לא עולים. דורש `.env` עם DATABASE_URL
 - **`.env.example`** — תבנית למשתני סביבה (Project URL + Publishable key כבר מוטמעים; secrets ב-`.env` המקומי בלבד)
 - `GLOSSARY.md` — **מילון מושגים מקיף** — DS/ML + אלגוריתמים, מוסבר בשלוש רמות (ילד/טכני/פרוייקט)
 - `DATA_DEEP_DIVE.md` + `sample_30_rows.xlsx` — ניתוח ידני של 30 שורות מ-test, השוואת 6 מודלים, זיהוי דפוסים
@@ -142,8 +144,10 @@
 ### Auto-retrain (שלב 53-54, 2026-05-23)
 - **`retrain_from_supabase.py`** — נטען בו ב-CI. מאמן מ-Supabase, מודד test MAE, שומר `model_saved.joblib` ומוסיף שורה ל-`retrain_log.md`. **שלב 55:** `tag_events_by_date()` גוזר תגי אירועים מ-`אירועים_מדויקים.csv` לפי תאריך (תיקון הבאג שבו התגים אבדו לברירות-מחדל קבועות). טוען `.env` ומושך גם `duration_min`.
 - **`verify_event_fix.py`** (שלב 55) — מוכיח את תיקון האירועים: תיוג נכון (0 אי-התאמות מול xlsx) + ablation (שיפור 9.6% ב-MAE: 0.333→0.301) + permutation importance. הרצה מקומית, ללא DB.
-- **`process_raw_data.py`** (שלב 54) — מקבל קובץ גולמי מ-i24 (15 עמודות), מוסיף 19 עמודות מהונדסות, ממזג עם הדאטה הקיים ועושה dedup. אומת מספרית מול eda_script.py.
-- **`.github/workflows/retrain.yml`** — cron `0 4 1 * *` (חודשי, 1 לחודש 07:00 ישראל) + workflow_dispatch. דורש secret `DATABASE_URL` ב-GitHub repo.
+- **`process_raw_data.py`** (שלב 54) — מקבל קובץ גולמי מ-i24 (15 עמודות), מוסיף 19 עמודות מהונדסות, ממזג עם הדאטה הקיים ועושה dedup. אומת מספרית מול eda_script.py. **שלב 101:** קורא גם xlsx עם שורת באנר, ו-`canon_time` מאחד את כתיב השעות ל-`HH:MM:SS` (שעות אחרי חצות נשמרות כ-`24:23:36`). כשמגיע קובץ **מלא** (כל הטווח) מריצים עם `--no-merge`.
+- **`.github/workflows/retrain.yml`** — cron `0 4 1 * *` (חודשי, 1 לחודש 07:00 ישראל) + workflow_dispatch. דורש secret `DATABASE_URL` ב-GitHub repo. **מאז שלב 101 מאמן גם את `model_kabinet_shishi.joblib`** (המודל שבייצור), לא רק את `model_saved.joblib`.
+- **`retrain_log_kabinet.md`** — שורה לכל אימון של מודל קבינט שישי (MAE ב-walk-forward, רוחב הטווח).
+- **`נתונים_חודשיים/`** — הקבצים הגולמיים שמגיעים מ-i24. מוחרגים מ-git (רק ה-README במעקב).
 - **`.github/workflows/keepalive.yml`** (שלב 61) — cron `*/10 * * * *`: ping ל-`/health` (Render) ול-Streamlit כדי למנוע Cold Start. חלופה עצמאית ל-UptimeRobot.
 - **`.claude/skills/process-i24-data/`** — סקיל מקומי (לא ב-git) שמנחה אותי בזרימה החודשית של בליעת דאטה חדשה.
 - **`RETRAIN.md`** — מדריך תפעולי: זרימה חודשית מקבצי i24 גולמיים → סקריפט → Supabase → retrain → deploy.
@@ -222,7 +226,8 @@ py -3 model_train_all.py            # V3 — 19 מודלים, ~60 שניות
 > ⚠️ MAE לא ישיר להשוואה: סקאלת `מותאם` גדולה ב-1.3x מ-`גולמי`. ב-MAE/mean יחסית, V4 ב-53.1% לעומת V3 ב-59.7% (V4 טוב ב-11%).
 
 ## החלטות ארכיטקטורה שכבר התקבלו
-- **Y = `רייטינג מותאם`** (panel-adjusted, ה-KPI העסקי, ראה שלב 52)
+- **מודל קבינט שישי (בייצור): Y = `רייטינג` גולמי** (שלב 101, 2026-10-13) — זה המספר ש-i24 מדווחת, והמותאם הציג תחזית גבוהה ב-5%. **בלי מכפיל מגמה** לתאריכים רחוקים, ו**רק ימי שישי**.
+- **המודל הכללי (`model_saved.joblib`, לא בייצור): Y = `רייטינג מותאם`** (panel-adjusted, ראה שלב 52)
 - פיצול **כרונולוגי** 80/20 (חיתוך 2026-02-08) — לא רנדומלי
 - **אין leakage**: עמודות שנמדדות אחרי שידור הוצאו מה-features
 - Lag features מחושבים רק מהיסטוריה שקדמה לכל שורה (על `רייטינג מותאם`)

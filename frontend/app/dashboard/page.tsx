@@ -11,12 +11,32 @@ import RangeBar from "@/components/RangeBar";
 
 type Scenario = "routine" | "special_event";
 
+// קבינט שישי משודרת רק בימי שישי, ולכן כל קיצורי התאריך נוחתים על יום שישי.
 const DATE_SHORTCUTS = [
-  { label: "היום", days: 0 },
-  { label: "מחר", days: 1 },
-  { label: "בעוד שבוע", days: 7 },
-  { label: "בעוד חודש", days: 30 },
+  { label: "שישי הקרוב", weeks: 0 },
+  { label: "בעוד שבוע", weeks: 1 },
+  { label: "בעוד חודש", weeks: 4 },
+  { label: "בעוד 3 חודשים", weeks: 13 },
 ];
+
+const FRIDAY = 5; // Date.getDay()
+
+function toIsoDate(d: Date): string {
+  // תאריך מקומי, לא UTC: toISOString מחזיר את אתמול בשעות הלילה בישראל.
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${d.getFullYear()}-${m}-${day}`;
+}
+
+function upcomingFriday(weeksAhead = 0): string {
+  const d = new Date();
+  d.setDate(d.getDate() + ((FRIDAY - d.getDay() + 7) % 7) + weeksAhead * 7);
+  return toIsoDate(d);
+}
+
+function isFriday(isoDate: string): boolean {
+  return new Date(`${isoDate}T12:00:00`).getDay() === FRIDAY;
+}
 
 const SCENARIOS: { value: Scenario; label: string; hint: string; icon: IconName }[] = [
   { value: "routine", label: "שגרה", hint: "שבוע רגיל, בלי אירוע חריג", icon: "calendar" },
@@ -35,11 +55,7 @@ export default function DashboardPage() {
   const [programAvg, setProgramAvg] = useState<number | null>(null);
 
   const [programName] = useState("קבינט שישי");
-  const [targetDate, setTargetDate] = useState(() => {
-    const d = new Date();
-    d.setDate(d.getDate() + 7);
-    return d.toISOString().slice(0, 10);
-  });
+  const [targetDate, setTargetDate] = useState(() => upcomingFriday());
   const [startTime, setStartTime] = useState("19:50");
   const [endTime, setEndTime] = useState("22:00");
   const [scenario, setScenario] = useState<Scenario>("routine");
@@ -137,8 +153,11 @@ export default function DashboardPage() {
     }
   }
 
+  const dateIsFriday = !targetDate || isFriday(targetDate);
+
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (!dateIsFriday) return;
     runPrediction();
   }
 
@@ -193,17 +212,20 @@ export default function DashboardPage() {
                     value={targetDate}
                     onChange={(e) => setTargetDate(e.target.value)}
                     className="field"
+                    aria-invalid={!dateIsFriday}
+                    aria-describedby={dateIsFriday ? undefined : "date-error"}
                   />
+                  {!dateIsFriday && (
+                    <p id="date-error" role="alert" className="text-xs text-red-700 mt-1.5">
+                      התוכנית משודרת רק בימי שישי. בחרי תאריך של יום שישי.
+                    </p>
+                  )}
                   <div className="flex gap-2 mt-2 flex-wrap">
                     {DATE_SHORTCUTS.map((s) => (
                       <button
                         key={s.label}
                         type="button"
-                        onClick={() => {
-                          const d = new Date();
-                          d.setDate(d.getDate() + s.days);
-                          setTargetDate(d.toISOString().slice(0, 10));
-                        }}
+                        onClick={() => setTargetDate(upcomingFriday(s.weeks))}
                         className="text-xs min-h-[36px] px-3 rounded-full border border-line bg-white text-muted hover:border-brand-primary hover:text-brand-primary transition-colors duration-150 cursor-pointer"
                       >
                         {s.label}
@@ -284,7 +306,7 @@ export default function DashboardPage() {
                 </div>
               </fieldset>
 
-              <button type="submit" disabled={loading} className="btn-primary w-full text-base">
+              <button type="submit" disabled={loading || !dateIsFriday} className="btn-primary w-full text-base">
                 {loading ? (
                   <>
                     <span className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />
@@ -335,7 +357,7 @@ export default function DashboardPage() {
               <article className="card overflow-hidden">
                 <div className="p-5 sm:p-6">
                   <div className="flex items-start justify-between gap-3">
-                    <h2 className="text-sm font-medium text-muted">תחזית רייטינג מותאם</h2>
+                    <h2 className="text-sm font-medium text-muted">תחזית רייטינג</h2>
                     {vsAvg != null && (
                       <span
                         className={`inline-flex items-center gap-1 text-xs px-2 py-1 rounded-full font-bold whitespace-nowrap ${
@@ -353,14 +375,9 @@ export default function DashboardPage() {
                     {result.predicted_rating.toFixed(2)}
                   </div>
 
-                  {result.predicted_rating_raw != null && (
-                    <p className="mt-2 text-xs text-muted">
-                      רייטינג גולמי משוער: <strong className="text-ink num">{result.predicted_rating_raw.toFixed(2)}</strong>
-                      {result.reception_pct_used != null && (
-                        <> · קליטת פאנל <span className="num">{Math.round(result.reception_pct_used * 100)}%</span></>
-                      )}
-                    </p>
-                  )}
+                  <p className="mt-2 text-xs text-muted">
+                    הרייטינג כפי ש-i24 מדווחת אותו, בלי התאמת פאנל.
+                  </p>
 
                   <RangeBar
                     low={result.prediction_low}
@@ -385,6 +402,11 @@ export default function DashboardPage() {
                   </dl>
 
                   <div className="space-y-3 mt-5 empty:hidden">
+                    {typeof result.metadata?.holiday_warning === "string" && (
+                      <Callout tone="warn" title="חג או ערב חג">
+                        {result.metadata.holiday_warning}
+                      </Callout>
+                    )}
                     {scenario === "special_event" && String(result.metadata?.scenario_effective) === "routine" && (
                       <Callout tone="info" title="אין אירוע ביטחוני פעיל בתאריך הזה">
                         בחרת ״אירוע ביטחוני״, אבל אין אירוע פעיל ב-<span className="num" dir="ltr">{targetDate}</span>, ולכן התחזית זהה לשגרה.

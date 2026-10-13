@@ -1,122 +1,169 @@
 """
-train_and_save_kabinet_model.py — מאמן על כל 48 השורות (בלי train/test split) ושומר
-ל-model_kabinet_shishi.joblib עם כל המטא-דאטה שה-backend צריך.
+train_and_save_kabinet_model.py — מאמן את מודל הייצור של קבינט שישי ושומר
+ל-model_kabinet_shishi.joblib.
 
-הרעיון: kabinet_shishi_model.py משמש להערכה (עם split); הסקריפט הזה
-לייצור-בפועל — מאמן על כל מה שיש, שומר, ומכניס לbackend.
+שלב 101 (2026-10-13):
+  - היעד הוא הרייטינג הגולמי, לא המותאם.
+  - לפני האימון רץ מבחן walk-forward: לכל שידור מאמנים רק על מה שקדם לו וחוזים
+    אותו. מהטעויות האלה נגזרים ה-MAE המדווח ורוחב טווח ה-80%.
+  - המודל הסופי מתאמן על כל השידורים.
+
+מקור הדאטה: Supabase אם DATABASE_URL מוגדר (כך זה רץ ב-CI), אחרת
+תוכניות_מעובד.xlsx. `--xlsx` כופה את הקובץ המקומי.
+
+הרצה:
+    py -3 -X utf8 train_and_save_kabinet_model.py
 """
 
+import argparse
 import io
+import os
 import sys
+from datetime import datetime, timezone
+from pathlib import Path
+
+import joblib
 import numpy as np
 import pandas as pd
-import joblib
 from sklearn.ensemble import HistGradientBoostingRegressor
+
+from kabinet_features import (
+    FEATURES, PROGRAM_NAME, TARGET,
+    active_events, lag_features, load_security_events, select_live_fridays,
+)
 
 sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
 
-PROGRAM_NAME = 'קבינט שישי'
-TARGET = 'רייטינג מותאם'
+try:  # הרצה מקומית קוראת את DATABASE_URL מ-.env; ב-CI הוא משתנה סביבה אמיתי
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    pass
+
+ROOT = Path(__file__).resolve().parent
+OUT_MODEL = ROOT / 'model_kabinet_shishi.joblib'
+OUT_LOG = ROOT / 'retrain_log_kabinet.md'
+MIN_TRAIN = 30          # ה-walk-forward מתחיל אחרי 30 שידורים
+MIN_SEC_RESIDUALS = 5   # פחות מזה: טווח האירוע הביטחוני נשען על כל הטעויות
+
+ap = argparse.ArgumentParser()
+ap.add_argument('--xlsx', action='store_true', help='לקרוא מ-תוכניות_מעובד.xlsx גם אם DATABASE_URL מוגדר')
+args = ap.parse_args()
+
 
 # ---------- 1. טעינה ----------
-df_all = pd.read_excel('תוכניות_מעובד.xlsx')
-mask = (
-    df_all['שם תוכנית'].astype(str).str.contains(PROGRAM_NAME, na=False) &
-    (df_all['סטטוס תוכנית'] == 'שידור חי')
-)
-df = df_all[mask].copy()
-df['תאריך שידור'] = pd.to_datetime(df['תאריך שידור'])
-df = df.sort_values('תאריך שידור').reset_index(drop=True)
-print(f'שידורים חיים של "{PROGRAM_NAME}": {len(df)}')
+def load_broadcasts() -> tuple:
+    db_url = os.environ.get('DATABASE_URL')
+    if db_url and not args.xlsx:
+        import psycopg
+        with psycopg.connect(db_url) as conn:
+            df = pd.read_sql(
+                """
+                select p.name           as "שם תוכנית",
+                       b.broadcast_date as "תאריך שידור",
+                       b.day_of_week    as "יום שידור",
+                       b.status         as "סטטוס תוכנית",
+                       b.actual_rating  as "רייטינג"
+                from public.broadcasts b
+                join public.programs p on p.id = b.program_id
+                where p.name like %s
+                """,
+                conn, params=(f'%{PROGRAM_NAME}%',),
+            )
+        return df, 'Supabase'
+    return pd.read_excel(ROOT / 'תוכניות_מעובד.xlsx'), 'תוכניות_מעובד.xlsx'
+
+
+raw, source = load_broadcasts()
+df = select_live_fridays(raw)
+print(f'מקור: {source} | שידורי-חי של "{PROGRAM_NAME}" בימי שישי: {len(df)} '
+      f'({df["תאריך שידור"].min().date()} → {df["תאריך שידור"].max().date()})')
 
 # ---------- 2. פיצ'רים ----------
-df['lag_1'] = df[TARGET].shift(1)
-df['lag_2'] = df[TARGET].shift(2)
-df['ema_4'] = df[TARGET].shift(1).ewm(span=4, adjust=False).mean()
-df['rolling_mean_4'] = df[TARGET].shift(1).rolling(4, min_periods=1).mean()
+events = load_security_events()
+df['is_security_day'] = df['תאריך שידור'].apply(lambda d: int(bool(active_events(d, events))))
+rows = [lag_features(df[TARGET].iloc[:i]) if i > 0 else {} for i in range(len(df))]
+df = pd.concat([df, pd.DataFrame(rows, index=df.index)], axis=1)
+df_model = df.dropna(subset=['lag_1']).reset_index(drop=True)
+X, y = df_model[FEATURES], df_model[TARGET]
 
-df['month'] = df['תאריך שידור'].dt.month
-df['week_of_year'] = df['תאריך שידור'].dt.isocalendar().week.astype(int)
-START_DATE = df['תאריך שידור'].min()
-df['weeks_since_start'] = ((df['תאריך שידור'] - START_DATE).dt.days // 7)
 
-df['is_security_day'] = df['יום_ביטחוני'].fillna(0).astype(int)
-sec_levels_all = sorted(df['תג_ביטחוני'].astype(str).unique().tolist())
-sec_dummies = pd.get_dummies(df['תג_ביטחוני'].astype(str), prefix='sec').astype(int)
-df = pd.concat([df, sec_dummies], axis=1)
+def new_model() -> HistGradientBoostingRegressor:
+    return HistGradientBoostingRegressor(
+        max_iter=200,
+        max_depth=3,
+        learning_rate=0.05,
+        min_samples_leaf=5,
+        l2_regularization=1.0,
+        random_state=42,
+    )
 
-df['duration_min'] = df['משך תוכנית_דק']
 
-FEATURES = (
-    ['lag_1', 'lag_2', 'ema_4', 'rolling_mean_4',
-     'month', 'week_of_year', 'weeks_since_start',
-     'is_security_day', 'duration_min']
-    + list(sec_dummies.columns)
-)
-print(f'{len(FEATURES)} פיצ\'רים: {FEATURES}')
-print(f'רמות תג_ביטחוני שנצפו באימון: {sec_levels_all}')
+# ---------- 3. walk-forward: מה היה קורה אילו חזינו כל שבוע מחדש ----------
+bt = []
+for i in range(MIN_TRAIN, len(df_model)):
+    m = new_model().fit(X.iloc[:i], y.iloc[:i])
+    bt.append({
+        'date': df_model.loc[i, 'תאריך שידור'],
+        'actual': float(y.iloc[i]),
+        'pred': float(m.predict(X.iloc[[i]])[0]),
+        'lag_1': float(X.iloc[i]['lag_1']),
+        'is_security_day': int(X.iloc[i]['is_security_day']),
+    })
+bt = pd.DataFrame(bt)
+bt['err'] = bt['pred'] - bt['actual']
+routine = bt[bt['is_security_day'] == 0]
+security = bt[bt['is_security_day'] == 1]
 
-# משתמשים רק בשורות עם lag_2
-df_model = df.dropna(subset=['lag_2']).reset_index(drop=True)
-X = df_model[FEATURES].fillna(0)
-y = df_model[TARGET]
-print(f'אימון על {len(df_model)} שורות (כולל כל ה-test מ-kabinet_shishi_model.py).')
+mae_all = float(bt['err'].abs().mean())
+mae_routine = float(routine['err'].abs().mean())
+bias_routine = float(routine['err'].mean())
+mae_lag1 = float((bt['lag_1'] - bt['actual']).abs().mean())
+hw_routine = float(routine['err'].abs().quantile(0.8))
+sec_pool = security if len(security) >= MIN_SEC_RESIDUALS else bt
+hw_security = max(float(sec_pool['err'].abs().quantile(0.8)), hw_routine)
 
-# ---------- 3. אימון ----------
-hgb = HistGradientBoostingRegressor(
-    max_iter=200,
-    max_depth=3,
-    learning_rate=0.05,
-    min_samples_leaf=5,
-    l2_regularization=1.0,
-    random_state=42,
-)
-hgb.fit(X, y)
+print(f'walk-forward על {len(bt)} שידורים ({bt["date"].min().date()} → {bt["date"].max().date()}):')
+print(f'  MAE כולל {mae_all:.3f} | בשגרה {mae_routine:.3f} (n={len(routine)}, הטיה {bias_routine:+.3f}) '
+      f'| באירוע ביטחוני {security["err"].abs().mean():.3f} (n={len(security)})')
+print(f'  להשוואה, "כמו בשבוע שעבר": MAE {mae_lag1:.3f}')
+print(f'  חצי-רוחב טווח 80%: שגרה ±{hw_routine:.2f} | אירוע ביטחוני ±{hw_security:.2f}')
 
-# תחזית in-sample לצורך sanity
-pred = hgb.predict(X)
-mae_in = float(np.mean(np.abs(y - pred)))
-print(f'in-sample MAE: {mae_in:.3f} (referenced expected_test_mae=0.717 מהניסוי)')
+# ---------- 4. אימון סופי על הכול ----------
+hgb = new_model().fit(X, y)
 
-# ---------- 4. היסטוריה שהbackend צריך לחישוב lag ----------
-# 4 השידורים האחרונים של קבינט שישי (חי), עם רייטינג מותאם + תאריך.
-# ה-backend ישתמש בהם כדי לחשב lag_1, lag_2, ema_4, rolling_mean_4 לתחזית העתידית.
-recent_history = df[['תאריך שידור', TARGET]].tail(6).reset_index(drop=True)
-recent_history['תאריך שידור'] = recent_history['תאריך שידור'].dt.strftime('%Y-%m-%d')
-
-# ממוצע ו-std של רייטינג מותאם לחישוב רווח-ביטחון 80% פשוט (זמנית עד שנאמן quantile חדש)
-y_mean = float(y.mean())
-y_std = float(y.std())
-
-# ---------- 5. שמירה ----------
 bundle = {
     'pipeline': hgb,
     'feature_cols': FEATURES,
-    'model_name': 'HistGradientBoosting-KabinetShishi',
-    'expected_test_mae': 0.717,
+    'model_name': 'HistGradientBoosting-KabinetShishi-raw',
+    'expected_test_mae': round(mae_routine, 3),
     'target_name': TARGET,
-    'target_kind': 'adjusted',
-    'in_sample_mae': mae_in,
-    'sec_levels': sec_levels_all,
-    'start_date': START_DATE.strftime('%Y-%m-%d'),
-    'recent_history': recent_history.to_dict('records'),
-    'y_mean': y_mean,
-    'y_std': y_std,
-    'n_train_rows': len(df_model),
+    'target_kind': 'raw',
+    'interval_half_width': {'routine': round(hw_routine, 3), 'security': round(hw_security, 3)},
+    'backtest': {
+        'n': int(len(bt)),
+        'mae_all': round(mae_all, 3),
+        'mae_routine': round(mae_routine, 3),
+        'bias_routine': round(bias_routine, 3),
+        'mae_lag1_baseline': round(mae_lag1, 3),
+    },
+    'n_train_rows': int(len(df_model)),
     'program_name': PROGRAM_NAME,
     'trained_on': f'{df["תאריך שידור"].min().date()} → {df["תאריך שידור"].max().date()}',
-    'notes': (
-        'מודל ייעודי לתוכנית קבינט שישי בלבד — רק שידורים חיים (סטטוס=\'שידור חי\'). '
-        'פיצ\'רים: lag_1/2, EMA4, rolling4, month, week_of_year, weeks_since_start, '
-        'is_security_day, duration_min, sec_* one-hot של תג_ביטחוני. '
-        'ה-backend צריך להזין lag_* מתוך recent_history + הפיצ\'רים החדשים.'
-    ),
+    'data_source': source,
 }
-joblib.dump(bundle, 'model_kabinet_shishi.joblib')
-print()
-print(f'✓ נשמר: model_kabinet_shishi.joblib')
-print(f'  Model: {bundle["model_name"]}')
-print(f'  Features: {len(FEATURES)}')
-print(f'  Expected test MAE: {bundle["expected_test_mae"]}')
-print(f'  Y stats: mean={y_mean:.3f}, std={y_std:.3f}')
-print(f'  Recent history rows: {len(recent_history)}')
+joblib.dump(bundle, OUT_MODEL)
+print(f'✓ נשמר: {OUT_MODEL.name} ({bundle["n_train_rows"]} שורות אימון, {bundle["trained_on"]})')
+
+# ---------- 5. לוג ----------
+if not OUT_LOG.exists():
+    OUT_LOG.write_text(
+        '# Retrain Log — קבינט שישי\n\n'
+        'שורה בכל אימון של `model_kabinet_shishi.joblib`. ה-MAE נמדד ב-walk-forward על רייטינג גולמי.\n\n'
+        '| תאריך (UTC) | מקור | שידורים | שידור אחרון | MAE שגרה | MAE "שבוע שעבר" | טווח 80% שגרה |\n'
+        '|---|---|---|---|---|---|---|\n',
+        encoding='utf-8',
+    )
+with OUT_LOG.open('a', encoding='utf-8') as f:
+    f.write(f'| {datetime.now(timezone.utc):%Y-%m-%d %H:%M} UTC | {source} | {len(df)} | '
+            f'{df["תאריך שידור"].max().date()} | {mae_routine:.3f} | {mae_lag1:.3f} | ±{hw_routine:.2f} |\n')
