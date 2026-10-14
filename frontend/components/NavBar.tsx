@@ -18,6 +18,14 @@ const NAV: { href: string; label: string; key: string; icon: IconName }[] = [
   { href: "/account", label: "חשבון", key: "account", icon: "user" },
 ];
 
+// דפי התוכן (הוויטרינה). הוסרו מהסרגל בשלב 98 והוחזרו בשלב 102.
+const CONTENT_NAV: { href: string; label: string }[] = [
+  { href: "/about", label: "אודות" },
+  { href: "/about#stats", label: "מספרים" },
+  { href: "/about#tech", label: "טכנולוגיה" },
+  { href: "/infographic", label: "מקסם למדע" },
+];
+
 export default function NavBar({ email, title = "לוח חיזוי תחזיות" }: Props) {
   const pathname = usePathname();
   const router = useRouter();
@@ -78,6 +86,27 @@ export default function NavBar({ email, title = "לוח חיזוי תחזיות"
               >
                 <Icon name={item.icon} size={18} />
                 <span>{item.label}</span>
+              </Link>
+            );
+          })}
+        </nav>
+      </div>
+
+      <div className="bg-canvas border-b border-line">
+        <nav aria-label="על המודל" className="max-w-6xl mx-auto px-4 sm:px-6 flex items-center gap-1 overflow-x-auto">
+          {CONTENT_NAV.map((item) => {
+            // רק הקישור בלי # מסומן כפעיל: את ה-hash אי אפשר לקרוא בזמן רינדור השרת.
+            const active = !item.href.includes("#") && pathname === item.href;
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                aria-current={active ? "page" : undefined}
+                className={`whitespace-nowrap inline-flex items-center min-h-[40px] px-3 text-xs sm:text-sm rounded-md transition-colors duration-150 ${
+                  active ? "text-brand-primary font-bold" : "text-muted hover:text-brand-dark hover:bg-white"
+                }`}
+              >
+                {item.label}
               </Link>
             );
           })}

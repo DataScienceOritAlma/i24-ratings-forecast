@@ -57,6 +57,13 @@ export default function LandingPage() {
             <Link href="/login?mode=signup" className="btn-primary text-sm">נסו חינם</Link>
           </div>
         </div>
+        {/* בנייד הקישורים שלמעלה מוסתרים, ולכן הם מופיעים כאן בשורה משלהם */}
+        <div className="md:hidden border-t border-line px-2 flex gap-1 overflow-x-auto text-sm">
+          <a href="/about" className="btn-quiet whitespace-nowrap">אודות</a>
+          <a href="/about#stats" className="btn-quiet whitespace-nowrap">מספרים</a>
+          <a href="/about#tech" className="btn-quiet whitespace-nowrap">טכנולוגיה</a>
+          <a href="/infographic" className="btn-quiet whitespace-nowrap">מקסם למדע</a>
+        </div>
       </nav>
 
       {/* Hero */}
