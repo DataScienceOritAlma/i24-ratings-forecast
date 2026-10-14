@@ -7,6 +7,7 @@ train_and_save_kabinet_model.py — מאמן את מודל הייצור של ק�
   - לפני האימון רץ מבחן walk-forward: לכל שידור מאמנים רק על מה שקדם לו וחוזים
     אותו. מהטעויות האלה נגזרים ה-MAE המדווח ורוחב טווח ה-80%.
   - המודל הסופי מתאמן על כל השידורים.
+שלב 103 (2026-10-14): Ridge במקום HistGradientBoosting.
 
 מקור הדאטה: Supabase אם DATABASE_URL מוגדר (כך זה רץ ב-CI), אחרת
 תוכניות_מעובד.xlsx. `--xlsx` כופה את הקובץ המקומי.
@@ -25,7 +26,7 @@ from pathlib import Path
 import joblib
 import numpy as np
 import pandas as pd
-from sklearn.ensemble import HistGradientBoostingRegressor
+from sklearn.linear_model import Ridge
 
 from kabinet_features import (
     FEATURES, PROGRAM_NAME, TARGET,
@@ -88,15 +89,10 @@ df_model = df.dropna(subset=['lag_1']).reset_index(drop=True)
 X, y = df_model[FEATURES], df_model[TARGET]
 
 
-def new_model() -> HistGradientBoostingRegressor:
-    return HistGradientBoostingRegressor(
-        max_iter=200,
-        max_depth=3,
-        learning_rate=0.05,
-        min_samples_leaf=5,
-        l2_regularization=1.0,
-        random_state=42,
-    )
+def new_model() -> Ridge:
+    # שלב 103: Ridge במקום HistGradientBoosting. עם ~60 שידורים, מודל ליניארי על
+    # אותם ארבעה פיצ'רים טעה פחות ב-walk-forward (שגרה 0.437 מול 0.499).
+    return Ridge(alpha=1.0)
 
 
 # ---------- 3. walk-forward: מה היה קורה אילו חזינו כל שבוע מחדש ----------
@@ -135,7 +131,7 @@ hgb = new_model().fit(X, y)
 bundle = {
     'pipeline': hgb,
     'feature_cols': FEATURES,
-    'model_name': 'HistGradientBoosting-KabinetShishi-raw',
+    'model_name': 'Ridge-KabinetShishi-raw',
     'expected_test_mae': round(mae_routine, 3),
     'target_name': TARGET,
     'target_kind': 'raw',
